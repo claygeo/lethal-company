@@ -222,9 +222,9 @@
         
         // Enhanced input
         const keys = {};
-        const mouse = { x: 0, y: 0, sensitivity: 0.0015 };
+        const mouse = { x: 0, y: 0, sensitivity: 0.002 }; // Increased sensitivity for smoother control
         let isPointerLocked = false;
-        let mouseSmoothingFactor = 0.2;
+        let mouseSmoothingFactor = 0.3; // Adjusted for smoother mouse movement
         let lastMouseX = 0, lastMouseY = 0;
         
         // Physics and collision
@@ -246,8 +246,8 @@
                 this.rotation = new THREE.Euler(0, 0, 0, 'YXZ');
                 
                 // Enhanced movement
-                this.speed = 6;
-                this.runMultiplier = 2.2;
+                this.speed = 7; // Slightly increased speed for better feel
+                this.runMultiplier = 2.5; // Adjusted for more dynamic running
                 this.crouchMultiplier = 0.4;
                 this.jumpVelocity = 0;
                 this.isGrounded = true;
@@ -256,7 +256,7 @@
                 
                 // Immersive effects
                 this.bobTime = 0;
-                this.bobIntensity = 0.08;
+                this.bobIntensity = 0.06; // Reduced intensity for smoother bobbing
                 this.breathingTime = 0;
                 this.landingImpact = 0;
                 this.sway = { x: 0, y: 0 };
@@ -301,29 +301,25 @@
                 lens.rotation.x = Math.PI / 2;
                 flashlightGroup.add(lens);
                 
-                // Position flashlight in hand (right hand position)
-                flashlightGroup.position.set(0.3, -0.2, -0.4);
-                flashlightGroup.rotation.set(-0.1, 0.2, 0);
+                // Position flashlight in hand (right hand position, adjusted for better alignment)
+                flashlightGroup.position.set(0.2, -0.3, -0.3);
+                flashlightGroup.rotation.set(0, 0, 0);
                 
                 this.camera.add(flashlightGroup);
                 flashlightObject = flashlightGroup;
                 
-                // Create flashlight light - FIXED: Position it correctly from the flashlight object
+                // Create flashlight light - Fixed to align with flashlight object
                 flashlight = new THREE.SpotLight(0xffffff, 0, 35, Math.PI / 7, 0.2);
-                
-                // Position the light at the flashlight lens position in world space
-                flashlight.position.set(0.3, -0.2, -0.35); // Slightly forward from flashlight body
-                flashlight.target.position.set(0, 0, -10);
+                flashlight.position.set(0.2, -0.3, -0.2); // Position at the lens
+                flashlight.target.position.set(0.2, -0.3, -10); // Point straight forward
                 flashlight.castShadow = true;
                 flashlight.shadow.mapSize.width = 2048;
                 flashlight.shadow.mapSize.height = 2048;
                 flashlight.shadow.bias = -0.0001;
                 
-                // Add to camera so it moves with player
                 this.camera.add(flashlight);
                 this.camera.add(flashlight.target);
                 
-                // Add camera to scene so flashlight is visible
                 if (scene) scene.add(this.camera);
             }
             
@@ -342,15 +338,13 @@
             handleMovement(deltaTime) {
                 this.direction = new THREE.Vector3();
                 
-                // FIXED: Corrected movement directions
-                if (keys['KeyW']) this.direction.z = 1;  // Forward
-                if (keys['KeyS']) this.direction.z = -1; // Backward
-                if (keys['KeyA']) this.direction.x = 1;  // Left
-                if (keys['KeyD']) this.direction.x = -1; // Right
+                if (keys['KeyW']) this.direction.z = 1;
+                if (keys['KeyS']) this.direction.z = -1;
+                if (keys['KeyA']) this.direction.x = 1;
+                if (keys['KeyD']) this.direction.x = -1;
                 
                 this.direction.normalize();
                 
-                // Movement modifiers
                 this.isRunning = keys['ShiftLeft'] && this.stamina > 10;
                 this.isCrouching = keys['KeyC'];
                 
@@ -358,7 +352,6 @@
                 if (this.isRunning) speedMultiplier = this.runMultiplier;
                 if (this.isCrouching) speedMultiplier = this.crouchMultiplier;
                 
-                // Apply camera rotation to movement
                 const forward = new THREE.Vector3(0, 0, -1);
                 const right = new THREE.Vector3(1, 0, 0);
                 forward.applyQuaternion(this.camera.quaternion);
@@ -373,7 +366,6 @@
                 this.velocity.x = moveVector.x * this.speed * speedMultiplier;
                 this.velocity.z = moveVector.z * this.speed * speedMultiplier;
                 
-                // Jump
                 if (keys['Space'] && this.isGrounded) {
                     this.velocity.y = 8;
                     this.isGrounded = false;
@@ -391,10 +383,8 @@
             }
             
             applyPhysics(deltaTime) {
-                // Enhanced gravity
                 this.velocity.y -= 15 * deltaTime;
                 
-                // Ground collision
                 if (this.position.y <= 2) {
                     if (this.velocity.y < -5) {
                         this.landingImpact = Math.abs(this.velocity.y) * 0.1;
@@ -406,19 +396,17 @@
                     this.isGrounded = false;
                 }
                 
-                // Apply movement with collision
                 const movement = this.velocity.clone().multiplyScalar(deltaTime);
                 this.position.add(movement);
                 this.updateBoundingBox();
             }
             
             checkCollisions() {
-                // Advanced collision detection with raycasting
                 const directions = [
-                    new THREE.Vector3(1, 0, 0),   // Right
-                    new THREE.Vector3(-1, 0, 0),  // Left
-                    new THREE.Vector3(0, 0, 1),   // Forward
-                    new THREE.Vector3(0, 0, -1),  // Backward
+                    new THREE.Vector3(1, 0, 0),
+                    new THREE.Vector3(-1, 0, 0),
+                    new THREE.Vector3(0, 0, 1),
+                    new THREE.Vector3(0, 0, -1),
                 ];
                 
                 directions.forEach(direction => {
@@ -426,14 +414,12 @@
                     const intersects = raycaster.intersectObjects(collisionObjects, true);
                     
                     if (intersects.length > 0 && intersects[0].distance < this.radius) {
-                        // Push player away from collision
                         const pushDirection = direction.clone().negate();
                         const pushDistance = this.radius - intersects[0].distance + 0.1;
                         this.position.addScaledVector(pushDirection, pushDistance);
                     }
                 });
                 
-                // Boundary collision
                 this.position.x = Math.max(-45, Math.min(45, this.position.x));
                 this.position.z = Math.max(-45, Math.min(45, this.position.z));
             }
@@ -442,10 +428,9 @@
                 let nearestInteractable = null;
                 let nearestDistance = Infinity;
                 
-                // Check for door interactions with proper distance
                 interactables.forEach(interactable => {
                     const distance = this.position.distanceTo(interactable.position);
-                    if (distance < 3 && distance < nearestDistance) {
+                    if (distance < 4 && distance < nearestDistance) { // Increased range to 4
                         nearestDistance = distance;
                         nearestInteractable = interactable;
                     }
@@ -463,7 +448,6 @@
                     showInteractionPrompt(false);
                 }
                 
-                // Check for scrap pickup in indoor scene
                 if (currentScene === 'indoor') {
                     raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
                     const intersects = raycaster.intersectObjects(scrapItems);
@@ -492,28 +476,24 @@
             }
             
             exitShip() {
-                // Move player outside ship, positioned in front of the ship
                 this.position.set(0, 2, 8);
                 currentScene = 'outdoor';
                 gameState = GameState.OUTDOOR;
                 
-                // Transition to outdoor scene
                 createOutdoorScene();
             }
             
             enterFacility() {
                 currentScene = 'indoor';
                 gameState = GameState.INDOOR;
-                this.position.set(0, 2, 12); // Position inside facility entrance
+                this.position.set(0, 2, 12);
                 
-                // Transition to indoor scene
                 transitionToIndoor();
             }
             
             collectScrap(scrap) {
                 quotaProgress += scrap.userData.value;
                 
-                // Enhanced collection effect
                 createCollectionEffect(scrap.position);
                 
                 scene.remove(scrap);
@@ -521,11 +501,10 @@
             }
             
             updateImmersiveEffects(deltaTime) {
-                // Head bobbing
                 if (this.direction.length() > 0 && this.isGrounded) {
-                    this.bobTime += deltaTime * (this.isRunning ? 12 : 8);
-                    const bobY = Math.sin(this.bobTime) * this.bobIntensity * (this.isRunning ? 1.5 : 1);
-                    const bobX = Math.sin(this.bobTime * 0.5) * this.bobIntensity * 0.3;
+                    this.bobTime += deltaTime * (this.isRunning ? 14 : 10); // Adjusted for smoother bobbing
+                    const bobY = Math.sin(this.bobTime) * this.bobIntensity * (this.isRunning ? 1.2 : 1);
+                    const bobX = Math.sin(this.bobTime * 0.5) * this.bobIntensity * 0.2;
                     
                     this.sway.x = bobX;
                     this.sway.y = bobY;
@@ -534,11 +513,9 @@
                     this.sway.y *= 0.9;
                 }
                 
-                // Breathing effect
                 this.breathingTime += deltaTime;
                 const breathingOffset = Math.sin(this.breathingTime * (2 + stressLevel * 0.01)) * 0.005;
                 
-                // Landing impact
                 if (this.landingImpact > 0) {
                     this.landingImpact *= 0.9;
                     this.sway.y -= this.landingImpact;
@@ -561,14 +538,12 @@
             }
             
             updateVitals() {
-                // Dynamic heart rate based on activity and stress
                 let targetHeartRate = 72;
                 if (this.isRunning) targetHeartRate = 120;
                 if (stressLevel > 50) targetHeartRate += stressLevel * 0.5;
                 
                 heartRate += (targetHeartRate - heartRate) * 0.02;
                 
-                // Oxygen consumption
                 if (currentScene === 'indoor') {
                     oxygenLevel = Math.max(0, oxygenLevel - 0.5 * clock.getDelta());
                 }
@@ -576,14 +551,10 @@
             
             updateFlashlight(deltaTime) {
                 if (flashlightOn && flashlightBattery > 0) {
-                    // FIXED: Slower battery drain (1.5% per second instead of 8%)
                     flashlightBattery = Math.max(0, flashlightBattery - 1.5 * deltaTime);
-                    
                     const intensity = flashlightBattery / 100;
-                    // FIXED: Brighter flashlight (intensity 4 instead of 2)
                     flashlight.intensity = intensity * 4;
                     
-                    // Update lens glow
                     if (flashlightObject) {
                         const lens = flashlightObject.children[1];
                         lens.material.emissiveIntensity = intensity * 2;
@@ -596,13 +567,9 @@
                     }
                 }
                 
-                // FIXED: Update flashlight position properly relative to camera
                 if (flashlight) {
-                    // Update the flashlight target direction to follow camera look direction
                     const direction = new THREE.Vector3();
                     this.camera.getWorldDirection(direction);
-                    
-                    // Position flashlight target ahead of the flashlight position
                     const flashlightWorldPos = new THREE.Vector3();
                     flashlight.getWorldPosition(flashlightWorldPos);
                     flashlight.target.position.copy(flashlightWorldPos).add(direction.multiplyScalar(10));
@@ -613,7 +580,7 @@
                 if (flashlightBattery <= 0 && !flashlightOn) return;
                 
                 flashlightOn = !flashlightOn;
-                flashlight.intensity = flashlightOn ? (flashlightBattery / 100) * 4 : 0; // Brighter when on
+                flashlight.intensity = flashlightOn ? (flashlightBattery / 100) * 4 : 0;
                 
                 if (flashlightObject) {
                     const lens = flashlightObject.children[1];
@@ -624,7 +591,7 @@
             handleMouseMove(movementX, movementY) {
                 if (!isPointerLocked) return;
                 
-                // Smooth mouse movement
+                // Enhanced smoothing for natural camera movement
                 const smoothedX = lastMouseX * (1 - mouseSmoothingFactor) + movementX * mouseSmoothingFactor;
                 const smoothedY = lastMouseY * (1 - mouseSmoothingFactor) + movementY * mouseSmoothingFactor;
                 
@@ -661,7 +628,6 @@
             createAdvancedMesh() {
                 this.group = new THREE.Group();
                 
-                // Main body with more detail
                 const bodyGeometry = new THREE.BoxGeometry(1.2, 2.8, 0.8);
                 const bodyMaterial = new THREE.MeshStandardMaterial({
                     color: 0x1a0000,
@@ -675,7 +641,6 @@
                 this.mesh.castShadow = true;
                 this.group.add(this.mesh);
                 
-                // Glowing core
                 const coreGeometry = new THREE.SphereGeometry(0.3, 16, 16);
                 const coreMaterial = new THREE.MeshBasicMaterial({
                     color: 0xff0000,
@@ -686,7 +651,6 @@
                 this.core.position.y = 0.5;
                 this.group.add(this.core);
                 
-                // Enhanced eyes
                 for (let i = 0; i < 2; i++) {
                     const eyeGeometry = new THREE.SphereGeometry(0.12, 12, 12);
                     const eyeMaterial = new THREE.MeshBasicMaterial({
@@ -699,7 +663,6 @@
                     eye.position.set(i === 0 ? -0.25 : 0.25, 0.8, 0.35);
                     this.group.add(eye);
                     
-                    // Eye glow effect
                     const eyeLight = new THREE.PointLight(0xff0000, 0.5, 5);
                     eyeLight.position.copy(eye.position);
                     this.group.add(eyeLight);
@@ -712,23 +675,19 @@
             update(deltaTime, playerPosition) {
                 const distanceToPlayer = this.position.distanceTo(playerPosition);
                 
-                // Enhanced AI state machine
                 this.updateAlertLevel(distanceToPlayer, deltaTime);
                 this.updateState(distanceToPlayer, playerPosition);
                 this.executeState(deltaTime, playerPosition);
                 this.updateEffects(deltaTime);
                 
-                // Apply movement
                 this.position.addScaledVector(this.velocity, deltaTime);
                 this.group.position.copy(this.position);
                 
-                // Look at movement direction
                 if (this.velocity.length() > 0.1) {
                     const lookDirection = this.velocity.clone().normalize();
                     this.group.lookAt(this.position.clone().add(lookDirection));
                 }
                 
-                // Update player stress based on proximity
                 this.updatePlayerStress(distanceToPlayer);
             }
             
@@ -825,7 +784,6 @@
                 this.velocity.copy(direction.multiplyScalar(this.speed * 1.2));
                 this.lastPlayerSeen.copy(playerPosition);
                 
-                // Play chase sounds
                 if (this.soundCooldown <= 0) {
                     this.soundCooldown = 2;
                 }
@@ -842,10 +800,8 @@
             }
             
             updateEffects(deltaTime) {
-                // Core pulsing
                 this.core.scale.setScalar(1 + Math.sin(Date.now() * 0.01) * 0.2);
                 
-                // State-based intensity
                 let intensity = 0.5;
                 if (this.state === 'chase') intensity = 1.5;
                 if (this.state === 'attack') intensity = 2.0;
@@ -910,7 +866,6 @@
             scene = new THREE.Scene();
             scene.fog = new THREE.Fog(0x001122, 5, 50);
             
-            // Ship interior lighting
             ambientLight = new THREE.AmbientLight(0x404040, 0.3);
             scene.add(ambientLight);
             
@@ -918,21 +873,18 @@
             shipLight.position.set(0, 3, 0);
             scene.add(shipLight);
             
-            // Ship interior walls
             const wallMaterial = new THREE.MeshStandardMaterial({
                 color: 0x444444,
                 metalness: 0.8,
                 roughness: 0.4
             });
             
-            // Floor
             const floor = new THREE.Mesh(new THREE.PlaneGeometry(6, 12), wallMaterial);
             floor.rotation.x = -Math.PI / 2;
             floor.position.y = 0;
             floor.receiveShadow = true;
             scene.add(floor);
             
-            // Walls
             const backWall = new THREE.Mesh(new THREE.PlaneGeometry(6, 4), wallMaterial);
             backWall.position.set(0, 2, -6);
             scene.add(backWall);
@@ -950,13 +902,11 @@
             scene.add(rightWall);
             collisionObjects.push(rightWall);
             
-            // Ceiling
             const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(6, 12), wallMaterial);
             ceiling.rotation.x = Math.PI / 2;
             ceiling.position.y = 4;
             scene.add(ceiling);
             
-            // FIXED: Ship door positioned properly at the front of ship
             const doorGeometry = new THREE.BoxGeometry(2.5, 3.5, 0.2);
             const doorMaterial = new THREE.MeshStandardMaterial({
                 color: 0x666666,
@@ -967,7 +917,7 @@
             });
             
             shipDoor = new THREE.Mesh(doorGeometry, doorMaterial);
-            shipDoor.position.set(0, 1.75, 5.9); // At the front of the ship
+            shipDoor.position.set(0, 1.75, 5.9);
             shipDoor.userData = {
                 type: 'ship_exit',
                 prompt: '[E] EXIT SHIP'
@@ -976,7 +926,6 @@
             
             interactables.push(shipDoor);
             
-            // Add some ship interior details
             const controlPanel = new THREE.Mesh(
                 new THREE.BoxGeometry(1, 0.5, 0.2),
                 new THREE.MeshStandardMaterial({
@@ -988,7 +937,6 @@
             controlPanel.position.set(-2, 1.5, -4);
             scene.add(controlPanel);
             
-            // Setup flashlight after scene is created
             playerController.setupFlashlight();
         }
         
@@ -1006,17 +954,14 @@
             createIndustrialFacility();
             createAtmosphericEffects();
             
-            // Re-add camera and setup flashlight
             scene.add(camera);
             playerController.setupFlashlight();
         }
         
         function setupAdvancedLighting() {
-            // Ultra-realistic lighting setup
             ambientLight = new THREE.AmbientLight(0x1a1a2e, 0.1);
             scene.add(ambientLight);
             
-            // Main moon lighting
             directionalLight = new THREE.DirectionalLight(0x6666bb, 0.4);
             directionalLight.position.set(30, 80, 40);
             directionalLight.castShadow = true;
@@ -1031,7 +976,6 @@
             directionalLight.shadow.bias = -0.0001;
             scene.add(directionalLight);
             
-            // Additional atmospheric lights
             const atmosphereLight1 = new THREE.PointLight(0x4444aa, 0.3, 100);
             atmosphereLight1.position.set(-50, 30, -50);
             scene.add(atmosphereLight1);
@@ -1042,7 +986,6 @@
         }
         
         function createDetailedTerrain() {
-            // Advanced procedural terrain
             const terrainGeometry = new THREE.PlaneGeometry(300, 300, 150, 150);
             const vertices = terrainGeometry.attributes.position.array;
             
@@ -1050,7 +993,6 @@
                 const x = vertices[i];
                 const z = vertices[i + 2];
                 
-                // Multi-layered noise for realistic terrain
                 let height = 0;
                 height += Math.sin(x * 0.01) * Math.cos(z * 0.01) * 3;
                 height += Math.sin(x * 0.03) * Math.cos(z * 0.03) * 1;
@@ -1075,7 +1017,6 @@
             terrain.receiveShadow = true;
             scene.add(terrain);
             
-            // Add rocks and debris
             createTerrainDetails();
         }
         
@@ -1109,7 +1050,6 @@
         function createAdvancedSpaceship() {
             const shipGroup = new THREE.Group();
             
-            // Highly detailed hull
             const hullGeometry = new THREE.CylinderGeometry(2.5, 3.5, 10, 16);
             const hullMaterial = new THREE.MeshStandardMaterial({
                 color: 0x777777,
@@ -1124,7 +1064,6 @@
             shipGroup.add(hull);
             collisionObjects.push(hull);
             
-            // Advanced landing gear
             for (let i = 0; i < 3; i++) {
                 const legGroup = new THREE.Group();
                 
@@ -1139,7 +1078,6 @@
                 leg.castShadow = true;
                 legGroup.add(leg);
                 
-                // Landing pad
                 const padGeometry = new THREE.CylinderGeometry(0.8, 0.6, 0.2);
                 const pad = new THREE.Mesh(padGeometry, legMaterial);
                 pad.position.y = -2.1;
@@ -1150,7 +1088,6 @@
                 shipGroup.add(legGroup);
             }
             
-            // Enhanced cockpit with interior detail
             const cockpitGeometry = new THREE.SphereGeometry(2, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2);
             const cockpitMaterial = new THREE.MeshStandardMaterial({
                 color: 0x333366,
@@ -1165,7 +1102,6 @@
             cockpit.castShadow = true;
             shipGroup.add(cockpit);
             
-            // Thruster effects
             for (let i = 0; i < 4; i++) {
                 const thrusterGeometry = new THREE.CylinderGeometry(0.3, 0.5, 0.8);
                 const thrusterMaterial = new THREE.MeshBasicMaterial({
@@ -1180,7 +1116,6 @@
                 thruster.rotation.x = Math.PI / 2;
                 shipGroup.add(thruster);
                 
-                // Thruster light
                 const thrusterLight = new THREE.PointLight(0x0088ff, 1, 10);
                 thrusterLight.position.copy(thruster.position);
                 shipGroup.add(thrusterLight);
@@ -1194,7 +1129,6 @@
         function createIndustrialFacility() {
             const facilityGroup = new THREE.Group();
             
-            // Main structure with incredible detail
             const buildingGeometry = new THREE.BoxGeometry(25, 15, 35);
             const buildingMaterial = new THREE.MeshStandardMaterial({
                 color: 0x444444,
@@ -1210,7 +1144,6 @@
             facilityGroup.add(building);
             collisionObjects.push(building);
             
-            // Enhanced entrance structure
             const entranceGeometry = new THREE.BoxGeometry(6, 10, 4);
             const entranceMaterial = new THREE.MeshStandardMaterial({
                 color: 0x333333,
@@ -1219,22 +1152,22 @@
             });
             
             const entrance = new THREE.Mesh(entranceGeometry, entranceMaterial);
-            entrance.position.set(0, 5, 19.5); // Positioned at the front of building
+            entrance.position.set(0, 5, 19.5);
             entrance.castShadow = true;
             facilityGroup.add(entrance);
             
-            // FIXED: Facility door positioned properly at the entrance
+            // Enhanced facility door with glowing effect
             const doorGeometry = new THREE.BoxGeometry(3.5, 7, 0.3);
             const doorMaterial = new THREE.MeshStandardMaterial({
                 color: 0x222222,
                 metalness: 0.95,
                 roughness: 0.2,
-                emissive: 0x001100,
-                emissiveIntensity: 0.1
+                emissive: 0x00ff33,
+                emissiveIntensity: 0.5
             });
             
             facilityDoor = new THREE.Mesh(doorGeometry, doorMaterial);
-            facilityDoor.position.set(0, 3.5, 21.5); // At the front of the entrance
+            facilityDoor.position.set(0, 3.5, 21.5);
             facilityDoor.userData = {
                 type: 'facility_entrance',
                 prompt: '[E] ENTER FACILITY'
@@ -1242,7 +1175,12 @@
             facilityDoor.castShadow = true;
             facilityGroup.add(facilityDoor);
             
-            // Add door frame for visibility
+            // Add glowing effect to door
+            const doorGlow = new THREE.PointLight(0x00ff33, 1.5, 10);
+            doorGlow.position.set(0, 3.5, 21.5);
+            facilityGroup.add(doorGlow);
+            dynamicLights.push({ light: doorGlow, type: 'door_glow', time: 0 });
+            
             const frameGeometry = new THREE.BoxGeometry(4, 8, 0.5);
             const frameMaterial = new THREE.MeshStandardMaterial({
                 color: 0x555555,
@@ -1253,7 +1191,6 @@
             doorFrame.position.set(0, 4, 21.6);
             facilityGroup.add(doorFrame);
             
-            // Industrial infrastructure
             addIndustrialDetails(facilityGroup);
             
             facilityGroup.position.set(0, 0, -35);
@@ -1264,7 +1201,6 @@
         }
         
         function addIndustrialDetails(facilityGroup) {
-            // Massive pipe systems
             for (let i = 0; i < 12; i++) {
                 const pipeGeometry = new THREE.CylinderGeometry(0.4, 0.4, 15);
                 const pipeMaterial = new THREE.MeshStandardMaterial({
@@ -1278,7 +1214,6 @@
                 pipe.castShadow = true;
                 facilityGroup.add(pipe);
                 
-                // Pipe joints
                 const jointGeometry = new THREE.SphereGeometry(0.6);
                 const joint = new THREE.Mesh(jointGeometry, pipeMaterial);
                 joint.position.set(pipe.position.x, pipe.position.y + 7, pipe.position.z);
@@ -1286,7 +1221,6 @@
                 facilityGroup.add(joint);
             }
             
-            // Warning lights on building
             for (let i = 0; i < 6; i++) {
                 const lightGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.5);
                 const lightMaterial = new THREE.MeshBasicMaterial({
@@ -1303,7 +1237,6 @@
                 );
                 facilityGroup.add(warningLight);
                 
-                // Animated warning light
                 const pointLight = new THREE.PointLight(0xff3300, 1, 15);
                 pointLight.position.copy(warningLight.position);
                 facilityGroup.add(pointLight);
@@ -1312,7 +1245,6 @@
         }
         
         function createAtmosphericEffects() {
-            // Enhanced particle systems
             createAdvancedFog();
             createDustParticles();
         }
@@ -1391,7 +1323,6 @@
             spawnAdvancedEnemies();
             createAdvancedScrapItems();
             
-            // Re-add camera and setup flashlight
             scene.add(camera);
             playerController.setupFlashlight();
         }
@@ -1400,7 +1331,6 @@
             ambientLight = new THREE.AmbientLight(0x202040, 0.05);
             scene.add(ambientLight);
             
-            // Emergency lighting system
             for (let i = 0; i < 8; i++) {
                 const emergencyLight = new THREE.PointLight(0xff6644, 0.6, 25);
                 emergencyLight.position.set(
@@ -1415,7 +1345,6 @@
         }
         
         function createFacilityInterior() {
-            // Main corridor
             const corridorGeometry = new THREE.BoxGeometry(50, 12, 100);
             const corridorMaterial = new THREE.MeshStandardMaterial({
                 color: 0x2a2a2a,
@@ -1429,7 +1358,6 @@
             scene.add(corridor);
             collisionObjects.push(corridor);
             
-            // Detailed floor
             const floorGeometry = new THREE.PlaneGeometry(150, 150, 30, 30);
             const floorMaterial = new THREE.MeshStandardMaterial({
                 color: 0x1a1a1a,
@@ -1442,7 +1370,6 @@
             floor.receiveShadow = true;
             scene.add(floor);
             
-            // Side rooms
             for (let i = 0; i < 6; i++) {
                 const roomGeometry = new THREE.BoxGeometry(20, 10, 20);
                 const roomMaterial = new THREE.MeshStandardMaterial({
@@ -1464,7 +1391,6 @@
                 collisionObjects.push(room);
             }
             
-            // Industrial details
             for (let i = 0; i < 30; i++) {
                 const detailGeometry = new THREE.BoxGeometry(
                     Math.random() * 3 + 1,
@@ -1603,7 +1529,6 @@
         }
         
         function createCollectionEffect(position) {
-            // Enhanced collection effect with particles
             const particleCount = 20;
             const positions = new Float32Array(particleCount * 3);
             const velocities = new Float32Array(particleCount * 3);
@@ -1633,7 +1558,6 @@
             effect.userData = { velocities: velocities, life: 1.0 };
             scene.add(effect);
             
-            // Remove effect after animation
             setTimeout(() => scene.remove(effect), 2000);
         }
         
@@ -1709,26 +1633,18 @@
             
             const deltaTime = clock.getDelta();
             
-            // Update player controller
             playerController.update(deltaTime);
             
-            // Update enemies
             if (currentScene === 'indoor') {
                 enemies.forEach(enemy => {
                     enemy.update(deltaTime, playerController.position);
                 });
             }
             
-            // Update dynamic lighting
             updateDynamicLights(deltaTime);
-            
-            // Update particle systems
             updateParticleEffects(deltaTime);
-            
-            // Update atmosphere
             updateAtmosphere(deltaTime);
             
-            // Render scene
             renderer.render(scene, camera);
         }
         
@@ -1745,6 +1661,11 @@
                     const flicker = 0.6 + 0.4 * Math.sin(lightData.time * 15 + Math.random());
                     lightData.light.intensity = flicker;
                 }
+                
+                if (lightData.type === 'door_glow') {
+                    const intensity = 1.0 + 0.5 * Math.sin(lightData.time * 4);
+                    lightData.light.intensity = intensity;
+                }
             });
         }
         
@@ -1759,7 +1680,6 @@
                         positions[i + 1] += velocities[i + 1] * deltaTime;
                         positions[i + 2] += velocities[i + 2] * deltaTime;
                         
-                        // Reset particles that go too far
                         if (positions[i + 1] > 30 || positions[i + 1] < -5) {
                             positions[i] = (Math.random() - 0.5) * 400;
                             positions[i + 1] = Math.random() * 30;
@@ -1773,7 +1693,6 @@
         }
         
         function updateAtmosphere(deltaTime) {
-            // Gradually reduce stress when no enemies nearby
             if (currentScene === 'indoor') {
                 let nearbyEnemy = false;
                 enemies.forEach(enemy => {
@@ -1790,7 +1709,6 @@
             }
         }
         
-        // Initialize the advanced game
         init();
         advancedGameLoop();
     </script>
