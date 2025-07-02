@@ -222,9 +222,9 @@
         
         // Enhanced input
         const keys = {};
-        const mouse = { x: 0, y: 0, sensitivity: 0.002 }; // Increased sensitivity for smoother control
+        const mouse = { x: 0, y: 0, sensitivity: 0.002 };
         let isPointerLocked = false;
-        let mouseSmoothingFactor = 0.3; // Adjusted for smoother mouse movement
+        let mouseSmoothingFactor = 0.3;
         let lastMouseX = 0, lastMouseY = 0;
         
         // Physics and collision
@@ -242,12 +242,12 @@
             constructor(camera) {
                 this.camera = camera;
                 this.velocity = new THREE.Vector3();
-                this.position = new THREE.Vector3(0, 2, -2); // Start inside ship, away from door
+                this.position = new THREE.Vector3(0, 2, -2);
                 this.rotation = new THREE.Euler(0, 0, 0, 'YXZ');
                 
                 // Enhanced movement
-                this.speed = 7; // Slightly increased speed for better feel
-                this.runMultiplier = 2.5; // Adjusted for more dynamic running
+                this.speed = 7;
+                this.runMultiplier = 2.5;
                 this.crouchMultiplier = 0.4;
                 this.jumpVelocity = 0;
                 this.isGrounded = true;
@@ -256,7 +256,7 @@
                 
                 // Immersive effects
                 this.bobTime = 0;
-                this.bobIntensity = 0.06; // Reduced intensity for smoother bobbing
+                this.bobIntensity = 0.06;
                 this.breathingTime = 0;
                 this.landingImpact = 0;
                 this.sway = { x: 0, y: 0 };
@@ -276,10 +276,8 @@
             }
             
             setupFlashlight() {
-                // Create physical flashlight object
                 const flashlightGroup = new THREE.Group();
                 
-                // Flashlight body
                 const bodyGeometry = new THREE.CylinderGeometry(0.03, 0.04, 0.2);
                 const bodyMaterial = new THREE.MeshStandardMaterial({
                     color: 0x333333,
@@ -290,7 +288,6 @@
                 body.rotation.x = Math.PI / 2;
                 flashlightGroup.add(body);
                 
-                // Flashlight lens
                 const lensGeometry = new THREE.CylinderGeometry(0.025, 0.025, 0.01);
                 const lensMaterial = new THREE.MeshBasicMaterial({
                     color: 0xffffaa,
@@ -301,17 +298,15 @@
                 lens.rotation.x = Math.PI / 2;
                 flashlightGroup.add(lens);
                 
-                // Position flashlight in hand (right hand position, adjusted for better alignment)
                 flashlightGroup.position.set(0.2, -0.3, -0.3);
                 flashlightGroup.rotation.set(0, 0, 0);
                 
                 this.camera.add(flashlightGroup);
                 flashlightObject = flashlightGroup;
                 
-                // Create flashlight light - Fixed to align with flashlight object
                 flashlight = new THREE.SpotLight(0xffffff, 0, 35, Math.PI / 7, 0.2);
-                flashlight.position.set(0.2, -0.3, -0.2); // Position at the lens
-                flashlight.target.position.set(0.2, -0.3, -10); // Point straight forward
+                flashlight.position.set(0.2, -0.3, -0.2);
+                flashlight.target.position.set(0.2, -0.3, -10);
                 flashlight.castShadow = true;
                 flashlight.shadow.mapSize.width = 2048;
                 flashlight.shadow.mapSize.height = 2048;
@@ -366,7 +361,7 @@
                 this.velocity.x = moveVector.x * this.speed * speedMultiplier;
                 this.velocity.z = moveVector.z * this.speed * speedMultiplier;
                 
-                if (keys['Space'] && this.isGrounded) {
+                if (keys['Space WHILE_SPACE'] && this.isGrounded) {
                     this.velocity.y = 8;
                     this.isGrounded = false;
                 }
@@ -430,7 +425,7 @@
                 
                 interactables.forEach(interactable => {
                     const distance = this.position.distanceTo(interactable.position);
-                    if (distance < 4 && distance < nearestDistance) { // Increased range to 4
+                    if (distance < 4 && distance < nearestDistance) {
                         nearestDistance = distance;
                         nearestInteractable = interactable;
                     }
@@ -502,7 +497,7 @@
             
             updateImmersiveEffects(deltaTime) {
                 if (this.direction.length() > 0 && this.isGrounded) {
-                    this.bobTime += deltaTime * (this.isRunning ? 14 : 10); // Adjusted for smoother bobbing
+                    this.bobTime += deltaTime * (this.isRunning ? 14 : 10);
                     const bobY = Math.sin(this.bobTime) * this.bobIntensity * (this.isRunning ? 1.2 : 1);
                     const bobX = Math.sin(this.bobTime * 0.5) * this.bobIntensity * 0.2;
                     
@@ -568,10 +563,11 @@
                 }
                 
                 if (flashlight) {
-                    const direction = new THREE.Vector3();
-                    this.camera.getWorldDirection(direction);
+                    const direction = new THREE.Vector3(0, 0, -1);
+                    direction.applyQuaternion(this.camera.quaternion);
                     const flashlightWorldPos = new THREE.Vector3();
                     flashlight.getWorldPosition(flashlightWorldPos);
+                    flashlight.position.copy(this.camera.position).add(new THREE.Vector3(0.2, -0.3, -0.2));
                     flashlight.target.position.copy(flashlightWorldPos).add(direction.multiplyScalar(10));
                 }
             }
@@ -591,7 +587,6 @@
             handleMouseMove(movementX, movementY) {
                 if (!isPointerLocked) return;
                 
-                // Enhanced smoothing for natural camera movement
                 const smoothedX = lastMouseX * (1 - mouseSmoothingFactor) + movementX * mouseSmoothingFactor;
                 const smoothedY = lastMouseY * (1 - mouseSmoothingFactor) + movementY * mouseSmoothingFactor;
                 
@@ -1144,7 +1139,8 @@
             facilityGroup.add(building);
             collisionObjects.push(building);
             
-            const entranceGeometry = new THREE.BoxGeometry(6, 10, 4);
+            // Enhanced entrance structure
+            const entranceGeometry = new THREE.BoxGeometry(8, 12, 6);
             const entranceMaterial = new THREE.MeshStandardMaterial({
                 color: 0x333333,
                 metalness: 0.8,
@@ -1152,22 +1148,22 @@
             });
             
             const entrance = new THREE.Mesh(entranceGeometry, entranceMaterial);
-            entrance.position.set(0, 5, 19.5);
+            entrance.position.set(0, 6, 19.5);
             entrance.castShadow = true;
             facilityGroup.add(entrance);
             
-            // Enhanced facility door with glowing effect
-            const doorGeometry = new THREE.BoxGeometry(3.5, 7, 0.3);
+            // Enhanced facility door
+            const doorGeometry = new THREE.BoxGeometry(4, 8, 0.3);
             const doorMaterial = new THREE.MeshStandardMaterial({
                 color: 0x222222,
                 metalness: 0.95,
                 roughness: 0.2,
                 emissive: 0x00ff33,
-                emissiveIntensity: 0.5
+                emissiveIntensity: 0.8
             });
             
             facilityDoor = new THREE.Mesh(doorGeometry, doorMaterial);
-            facilityDoor.position.set(0, 3.5, 21.5);
+            facilityDoor.position.set(0, 4, 21.8);
             facilityDoor.userData = {
                 type: 'facility_entrance',
                 prompt: '[E] ENTER FACILITY'
@@ -1175,21 +1171,49 @@
             facilityDoor.castShadow = true;
             facilityGroup.add(facilityDoor);
             
-            // Add glowing effect to door
-            const doorGlow = new THREE.PointLight(0x00ff33, 1.5, 10);
-            doorGlow.position.set(0, 3.5, 21.5);
-            facilityGroup.add(doorGlow);
-            dynamicLights.push({ light: doorGlow, type: 'door_glow', time: 0 });
-            
-            const frameGeometry = new THREE.BoxGeometry(4, 8, 0.5);
+            // Door frame
+            const frameGeometry = new THREE.BoxGeometry(5, 9, 0.5);
             const frameMaterial = new THREE.MeshStandardMaterial({
                 color: 0x555555,
                 metalness: 0.8,
                 roughness: 0.3
             });
             const doorFrame = new THREE.Mesh(frameGeometry, frameMaterial);
-            doorFrame.position.set(0, 4, 21.6);
+            doorFrame.position.set(0, 4.5, 21.9);
             facilityGroup.add(doorFrame);
+            
+            // Neon sign above door
+            const signGeometry = new THREE.BoxGeometry(5, 1, 0.2);
+            const signMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00ff33,
+                emissive: 0x00ff33,
+                emissiveIntensity: 1.5
+            });
+            const sign = new THREE.Mesh(signGeometry, signMaterial);
+            sign.position.set(0, 9, 21.8);
+            facilityGroup.add(sign);
+            
+            // Entrance lights
+            const doorGlowLeft = new THREE.PointLight(0x00ff33, 2, 10);
+            doorGlowLeft.position.set(-2.5, 4, 21.8);
+            facilityGroup.add(doorGlowLeft);
+            dynamicLights.push({ light: doorGlowLeft, type: 'door_glow', time: 0 });
+            
+            const doorGlowRight = new THREE.PointLight(0x00ff33, 2, 10);
+            doorGlowRight.position.set(2.5, 4, 21.8);
+            facilityGroup.add(doorGlowRight);
+            dynamicLights.push({ light: doorGlowRight, type: 'door_glow', time: 0 });
+            
+            // Entrance canopy
+            const canopyGeometry = new THREE.BoxGeometry(7, 1, 3);
+            const canopyMaterial = new THREE.MeshStandardMaterial({
+                color: 0x444444,
+                metalness: 0.7,
+                roughness: 0.6
+            });
+            const canopy = new THREE.Mesh(canopyGeometry, canopyMaterial);
+            canopy.position.set(0, 9, 20);
+            facilityGroup.add(canopy);
             
             addIndustrialDetails(facilityGroup);
             
