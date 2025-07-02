@@ -1,4 +1,4 @@
-# Lethal Company – Ultra Immersive (Three.js Fan Demake)
+Ultra Immersive (Three.js Fan Demake)
 
 > **Play in your browser • No installs • 100 % JavaScript & WebGL**
 
