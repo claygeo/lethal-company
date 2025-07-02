@@ -203,17 +203,12 @@
         let raycaster = new THREE.Raycaster();
         let currentScene = 'in_ship';
         
-        // Advanced rendering
-        let composer, renderPass, bloomPass, filmPass;
-        let postProcessingEnabled = true;
-        
         // Enhanced lighting system
         let flashlight, flashlightOn = false;
         let ambientLight, directionalLight;
         let dynamicLights = [];
         
         // Immersive systems
-        let breathingSystem, footstepSystem, heartbeatSystem;
         let particleSystems = [];
         let staminaLevel = 100, oxygenLevel = 100;
         let stressLevel = 0, heartRate = 72;
@@ -333,12 +328,10 @@
             handleMovement(deltaTime) {
                 this.direction = new THREE.Vector3();
                 
-                if (keys['KeyW']) this.direction.z = 1;
-                if (keys['KeyS']) this.direction.z = -1;
-                if (keys['KeyA']) this.direction.x = 1;
-                if (keys['KeyD']) this.direction.x = -1;
-                
-                this.direction.normalize();
+                if (keys['KeyW']) this.direction.z = -1; // Forward
+                if (keys['KeyS']) this.direction.z = 1;  // Backward
+                if (keys['KeyA']) this.direction.x = -1; // Left
+                if (keys['KeyD']) this.direction.x = 1;  // Right
                 
                 this.isRunning = keys['ShiftLeft'] && this.stamina > 10;
                 this.isCrouching = keys['KeyC'];
@@ -347,21 +340,28 @@
                 if (this.isRunning) speedMultiplier = this.runMultiplier;
                 if (this.isCrouching) speedMultiplier = this.crouchMultiplier;
                 
+                // Get camera's forward and right vectors
                 const forward = new THREE.Vector3(0, 0, -1);
                 const right = new THREE.Vector3(1, 0, 0);
                 forward.applyQuaternion(this.camera.quaternion);
                 right.applyQuaternion(this.camera.quaternion);
                 
+                // Project onto XZ plane to prevent vertical movement
+                forward.y = 0;
+                right.y = 0;
+                forward.normalize();
+                right.normalize();
+                
+                // Calculate movement vector
                 const moveVector = new THREE.Vector3();
                 moveVector.addScaledVector(forward, this.direction.z);
                 moveVector.addScaledVector(right, this.direction.x);
-                moveVector.y = 0;
                 moveVector.normalize();
                 
                 this.velocity.x = moveVector.x * this.speed * speedMultiplier;
                 this.velocity.z = moveVector.z * this.speed * speedMultiplier;
                 
-                if (keys['Space WHILE_SPACE'] && this.isGrounded) {
+                if (keys['Space'] && this.isGrounded) {
                     this.velocity.y = 8;
                     this.isGrounded = false;
                 }
@@ -425,7 +425,7 @@
                 
                 interactables.forEach(interactable => {
                     const distance = this.position.distanceTo(interactable.position);
-                    if (distance < 4 && distance < nearestDistance) {
+                    if (distance < 5 && distance < nearestDistance) { // Increased range
                         nearestDistance = distance;
                         nearestInteractable = interactable;
                     }
@@ -472,6 +472,8 @@
             
             exitShip() {
                 this.position.set(0, 2, 8);
+                this.rotation.y = Math.PI; // Face the building
+                this.camera.rotation.copy(this.rotation);
                 currentScene = 'outdoor';
                 gameState = GameState.OUTDOOR;
                 
@@ -1139,8 +1141,8 @@
             facilityGroup.add(building);
             collisionObjects.push(building);
             
-            // Enhanced entrance structure
-            const entranceGeometry = new THREE.BoxGeometry(8, 12, 6);
+            // Entrance structure aligned with building's front face
+            const entranceGeometry = new THREE.BoxGeometry(8, 12, 4);
             const entranceMaterial = new THREE.MeshStandardMaterial({
                 color: 0x333333,
                 metalness: 0.8,
@@ -1148,7 +1150,7 @@
             });
             
             const entrance = new THREE.Mesh(entranceGeometry, entranceMaterial);
-            entrance.position.set(0, 6, 19.5);
+            entrance.position.set(0, 6, -17.5); // Aligned with building front
             entrance.castShadow = true;
             facilityGroup.add(entrance);
             
@@ -1163,7 +1165,7 @@
             });
             
             facilityDoor = new THREE.Mesh(doorGeometry, doorMaterial);
-            facilityDoor.position.set(0, 4, 21.8);
+            facilityDoor.position.set(0, 4, -16.5); // Slightly offset from entrance
             facilityDoor.userData = {
                 type: 'facility_entrance',
                 prompt: '[E] ENTER FACILITY'
@@ -1179,7 +1181,7 @@
                 roughness: 0.3
             });
             const doorFrame = new THREE.Mesh(frameGeometry, frameMaterial);
-            doorFrame.position.set(0, 4.5, 21.9);
+            doorFrame.position.set(0, 4.5, -16.5);
             facilityGroup.add(doorFrame);
             
             // Neon sign above door
@@ -1190,17 +1192,17 @@
                 emissiveIntensity: 1.5
             });
             const sign = new THREE.Mesh(signGeometry, signMaterial);
-            sign.position.set(0, 9, 21.8);
+            sign.position.set(0, 9, -16.5);
             facilityGroup.add(sign);
             
             // Entrance lights
             const doorGlowLeft = new THREE.PointLight(0x00ff33, 2, 10);
-            doorGlowLeft.position.set(-2.5, 4, 21.8);
+            doorGlowLeft.position.set(-2.5, 4, -16.5);
             facilityGroup.add(doorGlowLeft);
             dynamicLights.push({ light: doorGlowLeft, type: 'door_glow', time: 0 });
             
             const doorGlowRight = new THREE.PointLight(0x00ff33, 2, 10);
-            doorGlowRight.position.set(2.5, 4, 21.8);
+            doorGlowRight.position.set(2.5, 4, -16.5);
             facilityGroup.add(doorGlowRight);
             dynamicLights.push({ light: doorGlowRight, type: 'door_glow', time: 0 });
             
@@ -1212,7 +1214,7 @@
                 roughness: 0.6
             });
             const canopy = new THREE.Mesh(canopyGeometry, canopyMaterial);
-            canopy.position.set(0, 9, 20);
+            canopy.position.set(0, 9, -18);
             facilityGroup.add(canopy);
             
             addIndustrialDetails(facilityGroup);
@@ -1234,7 +1236,7 @@
                 });
                 
                 const pipe = new THREE.Mesh(pipeGeometry, pipeMaterial);
-                pipe.position.set((i - 6) * 2, 7.5, -17.5);
+                pipe.position.set((i - 6) * 2, 7.5, 0);
                 pipe.castShadow = true;
                 facilityGroup.add(pipe);
                 
@@ -1257,7 +1259,7 @@
                 warningLight.position.set(
                     (i - 3) * 8,
                     12,
-                    18
+                    -17
                 );
                 facilityGroup.add(warningLight);
                 
