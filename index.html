@@ -1,0 +1,1798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lethal Company - Ultra Immersive</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            cursor: none;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 4px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 50%;
+            z-index: 100;
+            pointer-events: none;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+        
+        #hud {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            background: linear-gradient(135deg, rgba(0, 20, 0, 0.9), rgba(0, 40, 0, 0.8));
+            border: 2px solid #00ff41;
+            padding: 20px;
+            color: #00ff41;
+            font-size: 14px;
+            min-width: 200px;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+            backdrop-filter: blur(5px);
+            pointer-events: none;
+            z-index: 50;
+        }
+        
+        #interactionPrompt {
+            position: absolute;
+            bottom: 50%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(200, 200, 255, 0.9));
+            border: 3px solid #ffffff;
+            padding: 15px 30px;
+            color: #000;
+            font-size: 18px;
+            font-weight: bold;
+            display: none;
+            border-radius: 25px;
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
+            animation: pulse 1.5s infinite;
+        }
+        
+        #loadingScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, #000511, #001122);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #00ffff;
+            font-size: 24px;
+            z-index: 200;
+        }
+        
+        #breathingEffect {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 20px;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.3), transparent);
+            animation: breathing 3s ease-in-out infinite;
+            pointer-events: none;
+        }
+        
+        #damageOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, transparent 30%, rgba(255, 0, 0, 0.3) 70%);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        
+        .loading-scanner {
+            width: 400px;
+            height: 6px;
+            background: #001122;
+            margin: 20px 0;
+            overflow: hidden;
+            border-radius: 3px;
+            box-shadow: inset 0 0 10px rgba(0, 255, 255, 0.3);
+        }
+        
+        .loading-beam {
+            height: 100%;
+            background: linear-gradient(90deg, transparent, #00ffff, #ffffff, #00ffff, transparent);
+            width: 0%;
+            animation: scanning 4s ease-in-out forwards;
+        }
+        
+        @keyframes scanning {
+            to { width: 100%; }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(1.05); }
+        }
+        
+        @keyframes breathing {
+            0%, 100% { transform: translateY(0px); opacity: 0.3; }
+            50% { transform: translateY(-5px); opacity: 0.6; }
+        }
+        
+        .danger {
+            animation: dangerPulse 0.5s infinite !important;
+        }
+        
+        @keyframes dangerPulse {
+            0%, 100% { border-color: #ff4141; color: #ff4141; }
+            50% { border-color: #ff8888; color: #ff8888; }
+        }
+        
+        #ambientOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, transparent 0%, rgba(0, 5, 17, 0.4) 100%);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="loadingScreen">
+            <h1 style="font-size: 48px; text-shadow: 0 0 20px #00ffff;">LETHAL COMPANY</h1>
+            <h3 style="color: #ffffff;">ULTRA IMMERSIVE EDITION</h3>
+            <p style="margin-top: 30px;">INITIALIZING QUANTUM SYSTEMS...</p>
+            <div class="loading-scanner">
+                <div class="loading-beam"></div>
+            </div>
+            <p id="loadingText">Loading Neural Networks...</p>
+        </div>
+        
+        <div id="hud" style="display: none;">
+            <div id="crosshair"></div>
+            <div id="ambientOverlay"></div>
+            <div id="breathingEffect"></div>
+            <div id="damageOverlay"></div>
+            
+            <div><strong>HEALTH:</strong> <span id="playerHealth">100%</span></div>
+            <div><strong>FLASHLIGHT:</strong> <span id="flashlightBattery">100%</span></div>
+        </div>
+        
+        <div id="interactionPrompt"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Enhanced game state with immersive features
+        const GameState = {
+            LOADING: 'loading',
+            IN_SHIP: 'in_ship',
+            OUTDOOR: 'outdoor', 
+            INDOOR: 'indoor',
+            PAUSED: 'paused'
+        };
+        
+        // Core game systems
+        let gameState = GameState.LOADING;
+        let scene, camera, renderer;
+        let playerController;
+        let enemies = [];
+        let clock = new THREE.Clock();
+        let raycaster = new THREE.Raycaster();
+        let currentScene = 'in_ship';
+        
+        // Advanced rendering
+        let composer, renderPass, bloomPass, filmPass;
+        let postProcessingEnabled = true;
+        
+        // Enhanced lighting system
+        let flashlight, flashlightOn = false;
+        let ambientLight, directionalLight;
+        let dynamicLights = [];
+        
+        // Immersive systems
+        let breathingSystem, footstepSystem, heartbeatSystem;
+        let particleSystems = [];
+        let staminaLevel = 100, oxygenLevel = 100;
+        let stressLevel = 0, heartRate = 72;
+        let flashlightBattery = 100;
+        let playerHealth = 100;
+        
+        // Enhanced input
+        const keys = {};
+        const mouse = { x: 0, y: 0, sensitivity: 0.0015 };
+        let isPointerLocked = false;
+        let mouseSmoothingFactor = 0.2;
+        let lastMouseX = 0, lastMouseY = 0;
+        
+        // Physics and collision
+        let collisionObjects = [];
+        let playerBoundingBox;
+        let interactables = [];
+        
+        // Game objects
+        let spaceship, facility, shipDoor, facilityDoor;
+        let scrapItems = [];
+        let quotaProgress = 0;
+        let flashlightObject;
+        
+        class AdvancedPlayerController {
+            constructor(camera) {
+                this.camera = camera;
+                this.velocity = new THREE.Vector3();
+                this.position = new THREE.Vector3(0, 2, -2); // Start inside ship, away from door
+                this.rotation = new THREE.Euler(0, 0, 0, 'YXZ');
+                
+                // Enhanced movement
+                this.speed = 6;
+                this.runMultiplier = 2.2;
+                this.crouchMultiplier = 0.4;
+                this.jumpVelocity = 0;
+                this.isGrounded = true;
+                this.isCrouching = false;
+                this.isRunning = false;
+                
+                // Immersive effects
+                this.bobTime = 0;
+                this.bobIntensity = 0.08;
+                this.breathingTime = 0;
+                this.landingImpact = 0;
+                this.sway = { x: 0, y: 0 };
+                
+                // Physics
+                this.boundingBox = new THREE.Box3();
+                this.radius = 0.5;
+                this.height = 1.8;
+                
+                // Stamina system
+                this.stamina = 100;
+                this.staminaRegenRate = 25;
+                this.staminaDrainRate = 30;
+                
+                this.camera.position.copy(this.position);
+                this.updateBoundingBox();
+            }
+            
+            setupFlashlight() {
+                // Create physical flashlight object
+                const flashlightGroup = new THREE.Group();
+                
+                // Flashlight body
+                const bodyGeometry = new THREE.CylinderGeometry(0.03, 0.04, 0.2);
+                const bodyMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x333333,
+                    metalness: 0.8,
+                    roughness: 0.3
+                });
+                const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                body.rotation.x = Math.PI / 2;
+                flashlightGroup.add(body);
+                
+                // Flashlight lens
+                const lensGeometry = new THREE.CylinderGeometry(0.025, 0.025, 0.01);
+                const lensMaterial = new THREE.MeshBasicMaterial({
+                    color: 0xffffaa,
+                    emissive: 0x444400
+                });
+                const lens = new THREE.Mesh(lensGeometry, lensMaterial);
+                lens.position.z = 0.1;
+                lens.rotation.x = Math.PI / 2;
+                flashlightGroup.add(lens);
+                
+                // Position flashlight in hand (right hand position)
+                flashlightGroup.position.set(0.3, -0.2, -0.4);
+                flashlightGroup.rotation.set(-0.1, 0.2, 0);
+                
+                this.camera.add(flashlightGroup);
+                flashlightObject = flashlightGroup;
+                
+                // Create flashlight light - FIXED: Position it correctly from the flashlight object
+                flashlight = new THREE.SpotLight(0xffffff, 0, 35, Math.PI / 7, 0.2);
+                
+                // Position the light at the flashlight lens position in world space
+                flashlight.position.set(0.3, -0.2, -0.35); // Slightly forward from flashlight body
+                flashlight.target.position.set(0, 0, -10);
+                flashlight.castShadow = true;
+                flashlight.shadow.mapSize.width = 2048;
+                flashlight.shadow.mapSize.height = 2048;
+                flashlight.shadow.bias = -0.0001;
+                
+                // Add to camera so it moves with player
+                this.camera.add(flashlight);
+                this.camera.add(flashlight.target);
+                
+                // Add camera to scene so flashlight is visible
+                if (scene) scene.add(this.camera);
+            }
+            
+            update(deltaTime) {
+                this.handleMovement(deltaTime);
+                this.handleStamina(deltaTime);
+                this.applyPhysics(deltaTime);
+                this.checkCollisions();
+                this.updateImmersiveEffects(deltaTime);
+                this.updateCamera();
+                this.updateVitals();
+                this.updateFlashlight(deltaTime);
+                this.checkInteractions();
+            }
+            
+            handleMovement(deltaTime) {
+                this.direction = new THREE.Vector3();
+                
+                // FIXED: Corrected movement directions
+                if (keys['KeyW']) this.direction.z = 1;  // Forward
+                if (keys['KeyS']) this.direction.z = -1; // Backward
+                if (keys['KeyA']) this.direction.x = 1;  // Left
+                if (keys['KeyD']) this.direction.x = -1; // Right
+                
+                this.direction.normalize();
+                
+                // Movement modifiers
+                this.isRunning = keys['ShiftLeft'] && this.stamina > 10;
+                this.isCrouching = keys['KeyC'];
+                
+                let speedMultiplier = 1;
+                if (this.isRunning) speedMultiplier = this.runMultiplier;
+                if (this.isCrouching) speedMultiplier = this.crouchMultiplier;
+                
+                // Apply camera rotation to movement
+                const forward = new THREE.Vector3(0, 0, -1);
+                const right = new THREE.Vector3(1, 0, 0);
+                forward.applyQuaternion(this.camera.quaternion);
+                right.applyQuaternion(this.camera.quaternion);
+                
+                const moveVector = new THREE.Vector3();
+                moveVector.addScaledVector(forward, this.direction.z);
+                moveVector.addScaledVector(right, this.direction.x);
+                moveVector.y = 0;
+                moveVector.normalize();
+                
+                this.velocity.x = moveVector.x * this.speed * speedMultiplier;
+                this.velocity.z = moveVector.z * this.speed * speedMultiplier;
+                
+                // Jump
+                if (keys['Space'] && this.isGrounded) {
+                    this.velocity.y = 8;
+                    this.isGrounded = false;
+                }
+            }
+            
+            handleStamina(deltaTime) {
+                if (this.isRunning && this.direction.length() > 0) {
+                    this.stamina = Math.max(0, this.stamina - this.staminaDrainRate * deltaTime);
+                } else {
+                    this.stamina = Math.min(100, this.stamina + this.staminaRegenRate * deltaTime);
+                }
+                
+                staminaLevel = Math.floor(this.stamina);
+            }
+            
+            applyPhysics(deltaTime) {
+                // Enhanced gravity
+                this.velocity.y -= 15 * deltaTime;
+                
+                // Ground collision
+                if (this.position.y <= 2) {
+                    if (this.velocity.y < -5) {
+                        this.landingImpact = Math.abs(this.velocity.y) * 0.1;
+                    }
+                    this.position.y = 2;
+                    this.velocity.y = 0;
+                    this.isGrounded = true;
+                } else {
+                    this.isGrounded = false;
+                }
+                
+                // Apply movement with collision
+                const movement = this.velocity.clone().multiplyScalar(deltaTime);
+                this.position.add(movement);
+                this.updateBoundingBox();
+            }
+            
+            checkCollisions() {
+                // Advanced collision detection with raycasting
+                const directions = [
+                    new THREE.Vector3(1, 0, 0),   // Right
+                    new THREE.Vector3(-1, 0, 0),  // Left
+                    new THREE.Vector3(0, 0, 1),   // Forward
+                    new THREE.Vector3(0, 0, -1),  // Backward
+                ];
+                
+                directions.forEach(direction => {
+                    raycaster.set(this.position, direction);
+                    const intersects = raycaster.intersectObjects(collisionObjects, true);
+                    
+                    if (intersects.length > 0 && intersects[0].distance < this.radius) {
+                        // Push player away from collision
+                        const pushDirection = direction.clone().negate();
+                        const pushDistance = this.radius - intersects[0].distance + 0.1;
+                        this.position.addScaledVector(pushDirection, pushDistance);
+                    }
+                });
+                
+                // Boundary collision
+                this.position.x = Math.max(-45, Math.min(45, this.position.x));
+                this.position.z = Math.max(-45, Math.min(45, this.position.z));
+            }
+            
+            checkInteractions() {
+                let nearestInteractable = null;
+                let nearestDistance = Infinity;
+                
+                // Check for door interactions with proper distance
+                interactables.forEach(interactable => {
+                    const distance = this.position.distanceTo(interactable.position);
+                    if (distance < 3 && distance < nearestDistance) {
+                        nearestDistance = distance;
+                        nearestInteractable = interactable;
+                    }
+                });
+                
+                if (nearestInteractable) {
+                    showInteractionPrompt(true, nearestInteractable.userData.prompt);
+                    
+                    if (keys['KeyE'] && !this.interactionCooldown) {
+                        this.interact(nearestInteractable);
+                        this.interactionCooldown = true;
+                        setTimeout(() => this.interactionCooldown = false, 1000);
+                    }
+                } else {
+                    showInteractionPrompt(false);
+                }
+                
+                // Check for scrap pickup in indoor scene
+                if (currentScene === 'indoor') {
+                    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+                    const intersects = raycaster.intersectObjects(scrapItems);
+                    
+                    if (intersects.length > 0 && intersects[0].distance < 5) {
+                        const scrap = intersects[0].object;
+                        if (!nearestInteractable) {
+                            showInteractionPrompt(true, `[E] Collect ${scrap.userData.name}`);
+                        }
+                        
+                        if (keys['KeyE'] && !this.interactionCooldown) {
+                            this.collectScrap(scrap);
+                            this.interactionCooldown = true;
+                            setTimeout(() => this.interactionCooldown = false, 500);
+                        }
+                    }
+                }
+            }
+            
+            interact(interactable) {
+                if (interactable.userData.type === 'ship_exit') {
+                    this.exitShip();
+                } else if (interactable.userData.type === 'facility_entrance') {
+                    this.enterFacility();
+                }
+            }
+            
+            exitShip() {
+                // Move player outside ship, positioned in front of the ship
+                this.position.set(0, 2, 8);
+                currentScene = 'outdoor';
+                gameState = GameState.OUTDOOR;
+                
+                // Transition to outdoor scene
+                createOutdoorScene();
+            }
+            
+            enterFacility() {
+                currentScene = 'indoor';
+                gameState = GameState.INDOOR;
+                this.position.set(0, 2, 12); // Position inside facility entrance
+                
+                // Transition to indoor scene
+                transitionToIndoor();
+            }
+            
+            collectScrap(scrap) {
+                quotaProgress += scrap.userData.value;
+                
+                // Enhanced collection effect
+                createCollectionEffect(scrap.position);
+                
+                scene.remove(scrap);
+                scrapItems = scrapItems.filter(item => item !== scrap);
+            }
+            
+            updateImmersiveEffects(deltaTime) {
+                // Head bobbing
+                if (this.direction.length() > 0 && this.isGrounded) {
+                    this.bobTime += deltaTime * (this.isRunning ? 12 : 8);
+                    const bobY = Math.sin(this.bobTime) * this.bobIntensity * (this.isRunning ? 1.5 : 1);
+                    const bobX = Math.sin(this.bobTime * 0.5) * this.bobIntensity * 0.3;
+                    
+                    this.sway.x = bobX;
+                    this.sway.y = bobY;
+                } else {
+                    this.sway.x *= 0.9;
+                    this.sway.y *= 0.9;
+                }
+                
+                // Breathing effect
+                this.breathingTime += deltaTime;
+                const breathingOffset = Math.sin(this.breathingTime * (2 + stressLevel * 0.01)) * 0.005;
+                
+                // Landing impact
+                if (this.landingImpact > 0) {
+                    this.landingImpact *= 0.9;
+                    this.sway.y -= this.landingImpact;
+                }
+            }
+            
+            updateCamera() {
+                this.camera.position.copy(this.position);
+                this.camera.position.y += this.isCrouching ? -0.5 : 0;
+                this.camera.position.y += this.sway.y;
+                this.camera.position.x += this.sway.x;
+            }
+            
+            updateBoundingBox() {
+                const halfHeight = this.height / 2;
+                this.boundingBox.setFromCenterAndSize(
+                    this.position.clone().add(new THREE.Vector3(0, halfHeight, 0)),
+                    new THREE.Vector3(this.radius * 2, this.height, this.radius * 2)
+                );
+            }
+            
+            updateVitals() {
+                // Dynamic heart rate based on activity and stress
+                let targetHeartRate = 72;
+                if (this.isRunning) targetHeartRate = 120;
+                if (stressLevel > 50) targetHeartRate += stressLevel * 0.5;
+                
+                heartRate += (targetHeartRate - heartRate) * 0.02;
+                
+                // Oxygen consumption
+                if (currentScene === 'indoor') {
+                    oxygenLevel = Math.max(0, oxygenLevel - 0.5 * clock.getDelta());
+                }
+            }
+            
+            updateFlashlight(deltaTime) {
+                if (flashlightOn && flashlightBattery > 0) {
+                    // FIXED: Slower battery drain (1.5% per second instead of 8%)
+                    flashlightBattery = Math.max(0, flashlightBattery - 1.5 * deltaTime);
+                    
+                    const intensity = flashlightBattery / 100;
+                    // FIXED: Brighter flashlight (intensity 4 instead of 2)
+                    flashlight.intensity = intensity * 4;
+                    
+                    // Update lens glow
+                    if (flashlightObject) {
+                        const lens = flashlightObject.children[1];
+                        lens.material.emissiveIntensity = intensity * 2;
+                    }
+                    
+                    updateFlashlightDisplay();
+                    
+                    if (flashlightBattery <= 0) {
+                        this.toggleFlashlight();
+                    }
+                }
+                
+                // FIXED: Update flashlight position properly relative to camera
+                if (flashlight) {
+                    // Update the flashlight target direction to follow camera look direction
+                    const direction = new THREE.Vector3();
+                    this.camera.getWorldDirection(direction);
+                    
+                    // Position flashlight target ahead of the flashlight position
+                    const flashlightWorldPos = new THREE.Vector3();
+                    flashlight.getWorldPosition(flashlightWorldPos);
+                    flashlight.target.position.copy(flashlightWorldPos).add(direction.multiplyScalar(10));
+                }
+            }
+            
+            toggleFlashlight() {
+                if (flashlightBattery <= 0 && !flashlightOn) return;
+                
+                flashlightOn = !flashlightOn;
+                flashlight.intensity = flashlightOn ? (flashlightBattery / 100) * 4 : 0; // Brighter when on
+                
+                if (flashlightObject) {
+                    const lens = flashlightObject.children[1];
+                    lens.material.emissiveIntensity = flashlightOn ? (flashlightBattery / 100) * 2 : 0;
+                }
+            }
+            
+            handleMouseMove(movementX, movementY) {
+                if (!isPointerLocked) return;
+                
+                // Smooth mouse movement
+                const smoothedX = lastMouseX * (1 - mouseSmoothingFactor) + movementX * mouseSmoothingFactor;
+                const smoothedY = lastMouseY * (1 - mouseSmoothingFactor) + movementY * mouseSmoothingFactor;
+                
+                this.rotation.y -= smoothedX * mouse.sensitivity;
+                this.rotation.x -= smoothedY * mouse.sensitivity;
+                this.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, this.rotation.x));
+                
+                this.camera.rotation.copy(this.rotation);
+                
+                lastMouseX = smoothedX;
+                lastMouseY = smoothedY;
+            }
+        }
+        
+        class EnhancedEnemy {
+            constructor(position, type = 'stalker') {
+                this.position = position.clone();
+                this.type = type;
+                this.health = 100;
+                this.speed = 3;
+                this.detectionRadius = 20;
+                this.attackRadius = 2.5;
+                this.velocity = new THREE.Vector3();
+                this.state = 'patrol';
+                this.patrolTarget = new THREE.Vector3();
+                this.lastPlayerSeen = new THREE.Vector3();
+                this.alertLevel = 0;
+                this.soundCooldown = 0;
+                
+                this.createAdvancedMesh();
+                this.generatePatrolPath();
+            }
+            
+            createAdvancedMesh() {
+                this.group = new THREE.Group();
+                
+                // Main body with more detail
+                const bodyGeometry = new THREE.BoxGeometry(1.2, 2.8, 0.8);
+                const bodyMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x1a0000,
+                    emissive: 0x0a0000,
+                    metalness: 0.9,
+                    roughness: 0.3,
+                    emissiveIntensity: 0.2
+                });
+                
+                this.mesh = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                this.mesh.castShadow = true;
+                this.group.add(this.mesh);
+                
+                // Glowing core
+                const coreGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+                const coreMaterial = new THREE.MeshBasicMaterial({
+                    color: 0xff0000,
+                    emissive: 0xff0000,
+                    emissiveIntensity: 1
+                });
+                this.core = new THREE.Mesh(coreGeometry, coreMaterial);
+                this.core.position.y = 0.5;
+                this.group.add(this.core);
+                
+                // Enhanced eyes
+                for (let i = 0; i < 2; i++) {
+                    const eyeGeometry = new THREE.SphereGeometry(0.12, 12, 12);
+                    const eyeMaterial = new THREE.MeshBasicMaterial({
+                        color: 0xff3333,
+                        emissive: 0xff1111,
+                        emissiveIntensity: 2
+                    });
+                    
+                    const eye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+                    eye.position.set(i === 0 ? -0.25 : 0.25, 0.8, 0.35);
+                    this.group.add(eye);
+                    
+                    // Eye glow effect
+                    const eyeLight = new THREE.PointLight(0xff0000, 0.5, 5);
+                    eyeLight.position.copy(eye.position);
+                    this.group.add(eyeLight);
+                }
+                
+                this.group.position.copy(this.position);
+                scene.add(this.group);
+            }
+            
+            update(deltaTime, playerPosition) {
+                const distanceToPlayer = this.position.distanceTo(playerPosition);
+                
+                // Enhanced AI state machine
+                this.updateAlertLevel(distanceToPlayer, deltaTime);
+                this.updateState(distanceToPlayer, playerPosition);
+                this.executeState(deltaTime, playerPosition);
+                this.updateEffects(deltaTime);
+                
+                // Apply movement
+                this.position.addScaledVector(this.velocity, deltaTime);
+                this.group.position.copy(this.position);
+                
+                // Look at movement direction
+                if (this.velocity.length() > 0.1) {
+                    const lookDirection = this.velocity.clone().normalize();
+                    this.group.lookAt(this.position.clone().add(lookDirection));
+                }
+                
+                // Update player stress based on proximity
+                this.updatePlayerStress(distanceToPlayer);
+            }
+            
+            updateAlertLevel(distanceToPlayer, deltaTime) {
+                if (distanceToPlayer < this.detectionRadius) {
+                    this.alertLevel = Math.min(100, this.alertLevel + 50 * deltaTime);
+                } else {
+                    this.alertLevel = Math.max(0, this.alertLevel - 20 * deltaTime);
+                }
+            }
+            
+            updateState(distanceToPlayer, playerPosition) {
+                switch(this.state) {
+                    case 'patrol':
+                        if (this.alertLevel > 30) {
+                            this.state = 'investigating';
+                            this.lastPlayerSeen.copy(playerPosition);
+                        }
+                        break;
+                        
+                    case 'investigating':
+                        if (this.alertLevel > 70) {
+                            this.state = 'chase';
+                        } else if (this.alertLevel < 10) {
+                            this.state = 'patrol';
+                            this.generatePatrolPath();
+                        }
+                        break;
+                        
+                    case 'chase':
+                        if (distanceToPlayer < this.attackRadius) {
+                            this.state = 'attack';
+                        } else if (this.alertLevel < 20) {
+                            this.state = 'investigating';
+                        }
+                        break;
+                        
+                    case 'attack':
+                        if (distanceToPlayer > this.attackRadius * 1.5) {
+                            this.state = 'chase';
+                        }
+                        break;
+                }
+            }
+            
+            executeState(deltaTime, playerPosition) {
+                switch(this.state) {
+                    case 'patrol':
+                        this.patrol(deltaTime);
+                        break;
+                    case 'investigating':
+                        this.investigate(deltaTime, playerPosition);
+                        break;
+                    case 'chase':
+                        this.chase(deltaTime, playerPosition);
+                        break;
+                    case 'attack':
+                        this.attack(deltaTime, playerPosition);
+                        break;
+                }
+            }
+            
+            patrol(deltaTime) {
+                const direction = this.patrolTarget.clone().sub(this.position);
+                direction.y = 0;
+                
+                if (direction.length() < 2) {
+                    this.generatePatrolPath();
+                    return;
+                }
+                
+                direction.normalize();
+                this.velocity.copy(direction.multiplyScalar(this.speed * 0.4));
+            }
+            
+            investigate(deltaTime, playerPosition) {
+                const direction = this.lastPlayerSeen.clone().sub(this.position);
+                direction.y = 0;
+                
+                if (direction.length() < 3) {
+                    this.generatePatrolPath();
+                    return;
+                }
+                
+                direction.normalize();
+                this.velocity.copy(direction.multiplyScalar(this.speed * 0.7));
+            }
+            
+            chase(deltaTime, playerPosition) {
+                const direction = playerPosition.clone().sub(this.position);
+                direction.y = 0;
+                direction.normalize();
+                
+                this.velocity.copy(direction.multiplyScalar(this.speed * 1.2));
+                this.lastPlayerSeen.copy(playerPosition);
+                
+                // Play chase sounds
+                if (this.soundCooldown <= 0) {
+                    this.soundCooldown = 2;
+                }
+                this.soundCooldown -= deltaTime;
+            }
+            
+            attack(deltaTime, playerPosition) {
+                this.velocity.multiplyScalar(0.8);
+                
+                if (!this.lastAttack || Date.now() - this.lastAttack > 1500) {
+                    this.dealDamage();
+                    this.lastAttack = Date.now();
+                }
+            }
+            
+            updateEffects(deltaTime) {
+                // Core pulsing
+                this.core.scale.setScalar(1 + Math.sin(Date.now() * 0.01) * 0.2);
+                
+                // State-based intensity
+                let intensity = 0.5;
+                if (this.state === 'chase') intensity = 1.5;
+                if (this.state === 'attack') intensity = 2.0;
+                
+                this.core.material.emissiveIntensity = intensity;
+            }
+            
+            updatePlayerStress(distanceToPlayer) {
+                if (distanceToPlayer < 10) {
+                    const stressIncrease = (10 - distanceToPlayer) * 2;
+                    stressLevel = Math.min(100, stressLevel + stressIncrease * 0.02);
+                }
+            }
+            
+            generatePatrolPath() {
+                this.patrolTarget.set(
+                    this.position.x + (Math.random() - 0.5) * 25,
+                    this.position.y,
+                    this.position.z + (Math.random() - 0.5) * 25
+                );
+            }
+            
+            dealDamage() {
+                playerHealth = Math.max(0, playerHealth - 20);
+                updateHealthDisplay();
+                showDamageEffect();
+            }
+        }
+        
+        function init() {
+            setupRenderer();
+            setupCamera();
+            setupPlayerController();
+            setupEventListeners();
+            simulateAdvancedLoading();
+        }
+        
+        function setupRenderer() {
+            renderer = new THREE.WebGLRenderer({ 
+                antialias: true,
+                powerPreference: "high-performance"
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            renderer.setClearColor(0x000208);
+            document.getElementById('gameContainer').appendChild(renderer.domElement);
+        }
+        
+        function setupCamera() {
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        }
+        
+        function setupPlayerController() {
+            playerController = new AdvancedPlayerController(camera);
+        }
+        
+        function createShipInterior() {
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x001122, 5, 50);
+            
+            // Ship interior lighting
+            ambientLight = new THREE.AmbientLight(0x404040, 0.3);
+            scene.add(ambientLight);
+            
+            const shipLight = new THREE.PointLight(0x6666ff, 0.8, 20);
+            shipLight.position.set(0, 3, 0);
+            scene.add(shipLight);
+            
+            // Ship interior walls
+            const wallMaterial = new THREE.MeshStandardMaterial({
+                color: 0x444444,
+                metalness: 0.8,
+                roughness: 0.4
+            });
+            
+            // Floor
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(6, 12), wallMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.y = 0;
+            floor.receiveShadow = true;
+            scene.add(floor);
+            
+            // Walls
+            const backWall = new THREE.Mesh(new THREE.PlaneGeometry(6, 4), wallMaterial);
+            backWall.position.set(0, 2, -6);
+            scene.add(backWall);
+            collisionObjects.push(backWall);
+            
+            const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(12, 4), wallMaterial);
+            leftWall.rotation.y = Math.PI / 2;
+            leftWall.position.set(-3, 2, 0);
+            scene.add(leftWall);
+            collisionObjects.push(leftWall);
+            
+            const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(12, 4), wallMaterial);
+            rightWall.rotation.y = -Math.PI / 2;
+            rightWall.position.set(3, 2, 0);
+            scene.add(rightWall);
+            collisionObjects.push(rightWall);
+            
+            // Ceiling
+            const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(6, 12), wallMaterial);
+            ceiling.rotation.x = Math.PI / 2;
+            ceiling.position.y = 4;
+            scene.add(ceiling);
+            
+            // FIXED: Ship door positioned properly at the front of ship
+            const doorGeometry = new THREE.BoxGeometry(2.5, 3.5, 0.2);
+            const doorMaterial = new THREE.MeshStandardMaterial({
+                color: 0x666666,
+                metalness: 0.9,
+                roughness: 0.2,
+                emissive: 0x001100,
+                emissiveIntensity: 0.1
+            });
+            
+            shipDoor = new THREE.Mesh(doorGeometry, doorMaterial);
+            shipDoor.position.set(0, 1.75, 5.9); // At the front of the ship
+            shipDoor.userData = {
+                type: 'ship_exit',
+                prompt: '[E] EXIT SHIP'
+            };
+            scene.add(shipDoor);
+            
+            interactables.push(shipDoor);
+            
+            // Add some ship interior details
+            const controlPanel = new THREE.Mesh(
+                new THREE.BoxGeometry(1, 0.5, 0.2),
+                new THREE.MeshStandardMaterial({
+                    color: 0x222222,
+                    emissive: 0x001100,
+                    emissiveIntensity: 0.3
+                })
+            );
+            controlPanel.position.set(-2, 1.5, -4);
+            scene.add(controlPanel);
+            
+            // Setup flashlight after scene is created
+            playerController.setupFlashlight();
+        }
+        
+        function createOutdoorScene() {
+            scene.clear();
+            collisionObjects = [];
+            interactables = [];
+            
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x000511, 0.01);
+            
+            setupAdvancedLighting();
+            createDetailedTerrain();
+            createAdvancedSpaceship();
+            createIndustrialFacility();
+            createAtmosphericEffects();
+            
+            // Re-add camera and setup flashlight
+            scene.add(camera);
+            playerController.setupFlashlight();
+        }
+        
+        function setupAdvancedLighting() {
+            // Ultra-realistic lighting setup
+            ambientLight = new THREE.AmbientLight(0x1a1a2e, 0.1);
+            scene.add(ambientLight);
+            
+            // Main moon lighting
+            directionalLight = new THREE.DirectionalLight(0x6666bb, 0.4);
+            directionalLight.position.set(30, 80, 40);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 4096;
+            directionalLight.shadow.mapSize.height = 4096;
+            directionalLight.shadow.camera.near = 0.5;
+            directionalLight.shadow.camera.far = 1000;
+            directionalLight.shadow.camera.left = -100;
+            directionalLight.shadow.camera.right = 100;
+            directionalLight.shadow.camera.top = 100;
+            directionalLight.shadow.camera.bottom = -100;
+            directionalLight.shadow.bias = -0.0001;
+            scene.add(directionalLight);
+            
+            // Additional atmospheric lights
+            const atmosphereLight1 = new THREE.PointLight(0x4444aa, 0.3, 100);
+            atmosphereLight1.position.set(-50, 30, -50);
+            scene.add(atmosphereLight1);
+            
+            const atmosphereLight2 = new THREE.PointLight(0xaa4444, 0.2, 80);
+            atmosphereLight2.position.set(50, 25, 50);
+            scene.add(atmosphereLight2);
+        }
+        
+        function createDetailedTerrain() {
+            // Advanced procedural terrain
+            const terrainGeometry = new THREE.PlaneGeometry(300, 300, 150, 150);
+            const vertices = terrainGeometry.attributes.position.array;
+            
+            for (let i = 0; i < vertices.length; i += 3) {
+                const x = vertices[i];
+                const z = vertices[i + 2];
+                
+                // Multi-layered noise for realistic terrain
+                let height = 0;
+                height += Math.sin(x * 0.01) * Math.cos(z * 0.01) * 3;
+                height += Math.sin(x * 0.03) * Math.cos(z * 0.03) * 1;
+                height += Math.sin(x * 0.1) * Math.cos(z * 0.1) * 0.3;
+                
+                vertices[i + 2] = height;
+            }
+            
+            terrainGeometry.attributes.position.needsUpdate = true;
+            terrainGeometry.computeVertexNormals();
+            
+            const terrainMaterial = new THREE.MeshStandardMaterial({
+                color: 0x2a3f2a,
+                roughness: 0.95,
+                metalness: 0.05,
+                normalScale: new THREE.Vector2(0.5, 0.5)
+            });
+            
+            const terrain = new THREE.Mesh(terrainGeometry, terrainMaterial);
+            terrain.rotation.x = -Math.PI / 2;
+            terrain.position.y = -2;
+            terrain.receiveShadow = true;
+            scene.add(terrain);
+            
+            // Add rocks and debris
+            createTerrainDetails();
+        }
+        
+        function createTerrainDetails() {
+            for (let i = 0; i < 50; i++) {
+                const rockGeometry = new THREE.DodecahedronGeometry(Math.random() * 2 + 0.5);
+                const rockMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x444444,
+                    roughness: 0.9,
+                    metalness: 0.1
+                });
+                
+                const rock = new THREE.Mesh(rockGeometry, rockMaterial);
+                rock.position.set(
+                    (Math.random() - 0.5) * 200,
+                    -1,
+                    (Math.random() - 0.5) * 200
+                );
+                rock.rotation.set(
+                    Math.random() * Math.PI,
+                    Math.random() * Math.PI,
+                    Math.random() * Math.PI
+                );
+                rock.castShadow = true;
+                rock.receiveShadow = true;
+                scene.add(rock);
+                collisionObjects.push(rock);
+            }
+        }
+        
+        function createAdvancedSpaceship() {
+            const shipGroup = new THREE.Group();
+            
+            // Highly detailed hull
+            const hullGeometry = new THREE.CylinderGeometry(2.5, 3.5, 10, 16);
+            const hullMaterial = new THREE.MeshStandardMaterial({
+                color: 0x777777,
+                metalness: 0.9,
+                roughness: 0.2,
+                envMapIntensity: 1.0
+            });
+            
+            const hull = new THREE.Mesh(hullGeometry, hullMaterial);
+            hull.rotation.x = Math.PI / 2;
+            hull.castShadow = true;
+            shipGroup.add(hull);
+            collisionObjects.push(hull);
+            
+            // Advanced landing gear
+            for (let i = 0; i < 3; i++) {
+                const legGroup = new THREE.Group();
+                
+                const legGeometry = new THREE.CylinderGeometry(0.15, 0.25, 4);
+                const legMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x555555,
+                    metalness: 0.95,
+                    roughness: 0.1
+                });
+                
+                const leg = new THREE.Mesh(legGeometry, legMaterial);
+                leg.castShadow = true;
+                legGroup.add(leg);
+                
+                // Landing pad
+                const padGeometry = new THREE.CylinderGeometry(0.8, 0.6, 0.2);
+                const pad = new THREE.Mesh(padGeometry, legMaterial);
+                pad.position.y = -2.1;
+                legGroup.add(pad);
+                
+                const angle = (i / 3) * Math.PI * 2;
+                legGroup.position.set(Math.cos(angle) * 3, -3, Math.sin(angle) * 3);
+                shipGroup.add(legGroup);
+            }
+            
+            // Enhanced cockpit with interior detail
+            const cockpitGeometry = new THREE.SphereGeometry(2, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+            const cockpitMaterial = new THREE.MeshStandardMaterial({
+                color: 0x333366,
+                metalness: 0.95,
+                roughness: 0.05,
+                transparent: true,
+                opacity: 0.85
+            });
+            
+            const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
+            cockpit.position.set(0, 1.5, 4);
+            cockpit.castShadow = true;
+            shipGroup.add(cockpit);
+            
+            // Thruster effects
+            for (let i = 0; i < 4; i++) {
+                const thrusterGeometry = new THREE.CylinderGeometry(0.3, 0.5, 0.8);
+                const thrusterMaterial = new THREE.MeshBasicMaterial({
+                    color: 0x0088ff,
+                    emissive: 0x0066cc,
+                    emissiveIntensity: 1.5
+                });
+                
+                const thruster = new THREE.Mesh(thrusterGeometry, thrusterMaterial);
+                const angle = (i / 4) * Math.PI * 2;
+                thruster.position.set(Math.cos(angle) * 1.5, 0, -5 + Math.sin(angle) * 0.5);
+                thruster.rotation.x = Math.PI / 2;
+                shipGroup.add(thruster);
+                
+                // Thruster light
+                const thrusterLight = new THREE.PointLight(0x0088ff, 1, 10);
+                thrusterLight.position.copy(thruster.position);
+                shipGroup.add(thrusterLight);
+            }
+            
+            shipGroup.position.set(0, 3, 0);
+            spaceship = shipGroup;
+            scene.add(shipGroup);
+        }
+        
+        function createIndustrialFacility() {
+            const facilityGroup = new THREE.Group();
+            
+            // Main structure with incredible detail
+            const buildingGeometry = new THREE.BoxGeometry(25, 15, 35);
+            const buildingMaterial = new THREE.MeshStandardMaterial({
+                color: 0x444444,
+                metalness: 0.7,
+                roughness: 0.8,
+                normalScale: new THREE.Vector2(1, 1)
+            });
+            
+            const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
+            building.position.y = 7.5;
+            building.castShadow = true;
+            building.receiveShadow = true;
+            facilityGroup.add(building);
+            collisionObjects.push(building);
+            
+            // Enhanced entrance structure
+            const entranceGeometry = new THREE.BoxGeometry(6, 10, 4);
+            const entranceMaterial = new THREE.MeshStandardMaterial({
+                color: 0x333333,
+                metalness: 0.8,
+                roughness: 0.4
+            });
+            
+            const entrance = new THREE.Mesh(entranceGeometry, entranceMaterial);
+            entrance.position.set(0, 5, 19.5); // Positioned at the front of building
+            entrance.castShadow = true;
+            facilityGroup.add(entrance);
+            
+            // FIXED: Facility door positioned properly at the entrance
+            const doorGeometry = new THREE.BoxGeometry(3.5, 7, 0.3);
+            const doorMaterial = new THREE.MeshStandardMaterial({
+                color: 0x222222,
+                metalness: 0.95,
+                roughness: 0.2,
+                emissive: 0x001100,
+                emissiveIntensity: 0.1
+            });
+            
+            facilityDoor = new THREE.Mesh(doorGeometry, doorMaterial);
+            facilityDoor.position.set(0, 3.5, 21.5); // At the front of the entrance
+            facilityDoor.userData = {
+                type: 'facility_entrance',
+                prompt: '[E] ENTER FACILITY'
+            };
+            facilityDoor.castShadow = true;
+            facilityGroup.add(facilityDoor);
+            
+            // Add door frame for visibility
+            const frameGeometry = new THREE.BoxGeometry(4, 8, 0.5);
+            const frameMaterial = new THREE.MeshStandardMaterial({
+                color: 0x555555,
+                metalness: 0.8,
+                roughness: 0.3
+            });
+            const doorFrame = new THREE.Mesh(frameGeometry, frameMaterial);
+            doorFrame.position.set(0, 4, 21.6);
+            facilityGroup.add(doorFrame);
+            
+            // Industrial infrastructure
+            addIndustrialDetails(facilityGroup);
+            
+            facilityGroup.position.set(0, 0, -35);
+            facility = facilityGroup;
+            scene.add(facilityGroup);
+            
+            interactables.push(facilityDoor);
+        }
+        
+        function addIndustrialDetails(facilityGroup) {
+            // Massive pipe systems
+            for (let i = 0; i < 12; i++) {
+                const pipeGeometry = new THREE.CylinderGeometry(0.4, 0.4, 15);
+                const pipeMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x666666,
+                    metalness: 0.9,
+                    roughness: 0.4
+                });
+                
+                const pipe = new THREE.Mesh(pipeGeometry, pipeMaterial);
+                pipe.position.set((i - 6) * 2, 7.5, -17.5);
+                pipe.castShadow = true;
+                facilityGroup.add(pipe);
+                
+                // Pipe joints
+                const jointGeometry = new THREE.SphereGeometry(0.6);
+                const joint = new THREE.Mesh(jointGeometry, pipeMaterial);
+                joint.position.set(pipe.position.x, pipe.position.y + 7, pipe.position.z);
+                joint.castShadow = true;
+                facilityGroup.add(joint);
+            }
+            
+            // Warning lights on building
+            for (let i = 0; i < 6; i++) {
+                const lightGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.5);
+                const lightMaterial = new THREE.MeshBasicMaterial({
+                    color: 0xff3300,
+                    emissive: 0xff3300,
+                    emissiveIntensity: 2
+                });
+                
+                const warningLight = new THREE.Mesh(lightGeometry, lightMaterial);
+                warningLight.position.set(
+                    (i - 3) * 8,
+                    12,
+                    18
+                );
+                facilityGroup.add(warningLight);
+                
+                // Animated warning light
+                const pointLight = new THREE.PointLight(0xff3300, 1, 15);
+                pointLight.position.copy(warningLight.position);
+                facilityGroup.add(pointLight);
+                dynamicLights.push({ light: pointLight, type: 'warning', time: 0 });
+            }
+        }
+        
+        function createAtmosphericEffects() {
+            // Enhanced particle systems
+            createAdvancedFog();
+            createDustParticles();
+        }
+        
+        function createAdvancedFog() {
+            const fogParticleCount = 2000;
+            const positions = new Float32Array(fogParticleCount * 3);
+            const velocities = new Float32Array(fogParticleCount * 3);
+            
+            for (let i = 0; i < fogParticleCount * 3; i += 3) {
+                positions[i] = (Math.random() - 0.5) * 400;
+                positions[i + 1] = Math.random() * 30;
+                positions[i + 2] = (Math.random() - 0.5) * 400;
+                
+                velocities[i] = (Math.random() - 0.5) * 0.2;
+                velocities[i + 1] = Math.random() * 0.05;
+                velocities[i + 2] = (Math.random() - 0.5) * 0.2;
+            }
+            
+            const fogGeometry = new THREE.BufferGeometry();
+            fogGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            
+            const fogMaterial = new THREE.PointsMaterial({
+                color: 0x888899,
+                size: 4,
+                transparent: true,
+                opacity: 0.4,
+                blending: THREE.AdditiveBlending
+            });
+            
+            const fogSystem = new THREE.Points(fogGeometry, fogMaterial);
+            fogSystem.userData = { velocities: velocities };
+            scene.add(fogSystem);
+            particleSystems.push(fogSystem);
+        }
+        
+        function createDustParticles() {
+            const dustCount = 1000;
+            const positions = new Float32Array(dustCount * 3);
+            
+            for (let i = 0; i < dustCount * 3; i += 3) {
+                positions[i] = (Math.random() - 0.5) * 200;
+                positions[i + 1] = Math.random() * 20;
+                positions[i + 2] = (Math.random() - 0.5) * 200;
+            }
+            
+            const dustGeometry = new THREE.BufferGeometry();
+            dustGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            
+            const dustMaterial = new THREE.PointsMaterial({
+                color: 0xaaaaaa,
+                size: 1,
+                transparent: true,
+                opacity: 0.6
+            });
+            
+            const dustSystem = new THREE.Points(dustGeometry, dustMaterial);
+            scene.add(dustSystem);
+        }
+        
+        function transitionToIndoor() {
+            scene.clear();
+            collisionObjects = [];
+            interactables = [];
+            enemies = [];
+            
+            createIndoorScene();
+        }
+        
+        function createIndoorScene() {
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x000000, 5, 80);
+            
+            setupIndoorLighting();
+            createFacilityInterior();
+            spawnAdvancedEnemies();
+            createAdvancedScrapItems();
+            
+            // Re-add camera and setup flashlight
+            scene.add(camera);
+            playerController.setupFlashlight();
+        }
+        
+        function setupIndoorLighting() {
+            ambientLight = new THREE.AmbientLight(0x202040, 0.05);
+            scene.add(ambientLight);
+            
+            // Emergency lighting system
+            for (let i = 0; i < 8; i++) {
+                const emergencyLight = new THREE.PointLight(0xff6644, 0.6, 25);
+                emergencyLight.position.set(
+                    (i - 4) * 8,
+                    8,
+                    (i % 2) * 30 - 15
+                );
+                emergencyLight.castShadow = true;
+                scene.add(emergencyLight);
+                dynamicLights.push({ light: emergencyLight, type: 'emergency', time: 0 });
+            }
+        }
+        
+        function createFacilityInterior() {
+            // Main corridor
+            const corridorGeometry = new THREE.BoxGeometry(50, 12, 100);
+            const corridorMaterial = new THREE.MeshStandardMaterial({
+                color: 0x2a2a2a,
+                metalness: 0.5,
+                roughness: 0.8
+            });
+            
+            const corridor = new THREE.Mesh(corridorGeometry, corridorMaterial);
+            corridor.position.y = 6;
+            corridor.receiveShadow = true;
+            scene.add(corridor);
+            collisionObjects.push(corridor);
+            
+            // Detailed floor
+            const floorGeometry = new THREE.PlaneGeometry(150, 150, 30, 30);
+            const floorMaterial = new THREE.MeshStandardMaterial({
+                color: 0x1a1a1a,
+                metalness: 0.9,
+                roughness: 0.8
+            });
+            
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+            
+            // Side rooms
+            for (let i = 0; i < 6; i++) {
+                const roomGeometry = new THREE.BoxGeometry(20, 10, 20);
+                const roomMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x333333,
+                    metalness: 0.6,
+                    roughness: 0.7
+                });
+                
+                const room = new THREE.Mesh(roomGeometry, roomMaterial);
+                room.position.y = 5;
+                room.castShadow = true;
+                room.receiveShadow = true;
+                room.position.set(
+                    (i % 2 === 0 ? -35 : 35),
+                    0,
+                    (i % 3) * 25 - 35
+                );
+                scene.add(room);
+                collisionObjects.push(room);
+            }
+            
+            // Industrial details
+            for (let i = 0; i < 30; i++) {
+                const detailGeometry = new THREE.BoxGeometry(
+                    Math.random() * 3 + 1,
+                    Math.random() * 4 + 2,
+                    Math.random() * 3 + 1
+                );
+                const detailMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x333333,
+                    metalness: 0.7,
+                    roughness: 0.6
+                });
+                
+                const detail = new THREE.Mesh(detailGeometry, detailMaterial);
+                detail.position.set(
+                    (Math.random() - 0.5) * 80,
+                    Math.random() * 6 + 2,
+                    (Math.random() - 0.5) * 90
+                );
+                detail.rotation.set(
+                    Math.random() * Math.PI,
+                    Math.random() * Math.PI,
+                    Math.random() * Math.PI
+                );
+                detail.castShadow = true;
+                scene.add(detail);
+                collisionObjects.push(detail);
+            }
+        }
+        
+        function spawnAdvancedEnemies() {
+            const spawnPositions = [
+                new THREE.Vector3(-25, 2, -25),
+                new THREE.Vector3(20, 2, -15),
+                new THREE.Vector3(-15, 2, -45),
+                new THREE.Vector3(30, 2, -30)
+            ];
+            
+            spawnPositions.forEach(pos => {
+                const enemy = new EnhancedEnemy(pos);
+                enemies.push(enemy);
+            });
+        }
+        
+        function createAdvancedScrapItems() {
+            const scrapTypes = [
+                { color: 0xffdd00, value: 12, name: 'Gold Circuit', glow: true },
+                { color: 0x888888, value: 18, name: 'Titanium Plate', glow: false },
+                { color: 0xaa6600, value: 28, name: 'Quantum Core', glow: true },
+                { color: 0xff6600, value: 35, name: 'Energy Cell', glow: true },
+                { color: 0x00aaff, value: 42, name: 'Crystal Matrix', glow: true }
+            ];
+            
+            for (let i = 0; i < 12; i++) {
+                const scrapType = scrapTypes[Math.floor(Math.random() * scrapTypes.length)];
+                
+                const scrapGeometry = new THREE.BoxGeometry(
+                    Math.random() * 1.5 + 0.8,
+                    Math.random() * 1.2 + 0.5,
+                    Math.random() * 1.5 + 0.8
+                );
+                
+                const scrapMaterial = new THREE.MeshStandardMaterial({
+                    color: scrapType.color,
+                    metalness: 0.9,
+                    roughness: 0.2,
+                    emissive: scrapType.glow ? scrapType.color : 0x000000,
+                    emissiveIntensity: scrapType.glow ? 0.3 : 0
+                });
+                
+                const scrap = new THREE.Mesh(scrapGeometry, scrapMaterial);
+                scrap.position.set(
+                    (Math.random() - 0.5) * 70,
+                    1.5,
+                    (Math.random() - 0.5) * 80
+                );
+                scrap.rotation.set(
+                    Math.random() * Math.PI,
+                    Math.random() * Math.PI,
+                    Math.random() * Math.PI
+                );
+                scrap.castShadow = true;
+                scrap.userData = scrapType;
+                
+                if (scrapType.glow) {
+                    const glowLight = new THREE.PointLight(scrapType.color, 0.5, 8);
+                    glowLight.position.copy(scrap.position);
+                    scene.add(glowLight);
+                }
+                
+                scene.add(scrap);
+                scrapItems.push(scrap);
+            }
+        }
+        
+        function setupEventListeners() {
+            document.addEventListener('keydown', (e) => {
+                keys[e.code] = true;
+                
+                if (e.code === 'KeyF') {
+                    playerController.toggleFlashlight();
+                }
+                if (e.code === 'Escape') togglePause();
+            });
+            
+            document.addEventListener('keyup', (e) => {
+                keys[e.code] = false;
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (isPointerLocked) {
+                    playerController.handleMouseMove(e.movementX, e.movementY);
+                }
+            });
+            
+            renderer.domElement.addEventListener('click', () => {
+                if (gameState !== GameState.LOADING) {
+                    renderer.domElement.requestPointerLock();
+                }
+            });
+            
+            document.addEventListener('pointerlockchange', () => {
+                isPointerLocked = document.pointerLockElement === renderer.domElement;
+            });
+            
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+        
+        function showInteractionPrompt(show, text = '') {
+            const prompt = document.getElementById('interactionPrompt');
+            prompt.style.display = show ? 'block' : 'none';
+            if (text) prompt.textContent = text;
+        }
+        
+        function createCollectionEffect(position) {
+            // Enhanced collection effect with particles
+            const particleCount = 20;
+            const positions = new Float32Array(particleCount * 3);
+            const velocities = new Float32Array(particleCount * 3);
+            
+            for (let i = 0; i < particleCount * 3; i += 3) {
+                positions[i] = position.x;
+                positions[i + 1] = position.y;
+                positions[i + 2] = position.z;
+                
+                velocities[i] = (Math.random() - 0.5) * 5;
+                velocities[i + 1] = Math.random() * 5;
+                velocities[i + 2] = (Math.random() - 0.5) * 5;
+            }
+            
+            const effectGeometry = new THREE.BufferGeometry();
+            effectGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            
+            const effectMaterial = new THREE.PointsMaterial({
+                color: 0x00ff88,
+                size: 0.3,
+                transparent: true,
+                opacity: 1,
+                blending: THREE.AdditiveBlending
+            });
+            
+            const effect = new THREE.Points(effectGeometry, effectMaterial);
+            effect.userData = { velocities: velocities, life: 1.0 };
+            scene.add(effect);
+            
+            // Remove effect after animation
+            setTimeout(() => scene.remove(effect), 2000);
+        }
+        
+        function showDamageEffect() {
+            const overlay = document.getElementById('damageOverlay');
+            overlay.style.opacity = '1';
+            setTimeout(() => overlay.style.opacity = '0', 500);
+        }
+        
+        function updateHealthDisplay() {
+            document.getElementById('playerHealth').textContent = playerHealth + '%';
+            
+            if (playerHealth < 30) {
+                document.getElementById('hud').classList.add('danger');
+            } else {
+                document.getElementById('hud').classList.remove('danger');
+            }
+        }
+        
+        function updateFlashlightDisplay() {
+            document.getElementById('flashlightBattery').textContent = Math.floor(flashlightBattery) + '%';
+        }
+        
+        function togglePause() {
+            gameState = gameState === GameState.PAUSED ? 
+                (currentScene === 'in_ship' ? GameState.IN_SHIP : 
+                 currentScene === 'outdoor' ? GameState.OUTDOOR : GameState.INDOOR) : 
+                GameState.PAUSED;
+        }
+        
+        function simulateAdvancedLoading() {
+            const loadingTexts = [
+                'Loading Neural Networks...',
+                'Calibrating Sensor Array...',
+                'Initializing AI Systems...',
+                'Establishing Quantum Link...',
+                'Loading Environmental Data...',
+                'Synchronizing Biometrics...',
+                'Ready for Deployment'
+            ];
+            
+            let textIndex = 0;
+            const textInterval = setInterval(() => {
+                if (textIndex < loadingTexts.length) {
+                    document.getElementById('loadingText').textContent = loadingTexts[textIndex];
+                    textIndex++;
+                } else {
+                    clearInterval(textInterval);
+                }
+            }, 600);
+            
+            setTimeout(() => {
+                startAdvancedGame();
+            }, 4000);
+        }
+        
+        function startAdvancedGame() {
+            document.getElementById('loadingScreen').style.display = 'none';
+            document.getElementById('hud').style.display = 'block';
+            gameState = GameState.IN_SHIP;
+            createShipInterior();
+            
+            updateHealthDisplay();
+            updateFlashlightDisplay();
+        }
+        
+        function advancedGameLoop() {
+            requestAnimationFrame(advancedGameLoop);
+            
+            if (gameState === GameState.LOADING || gameState === GameState.PAUSED) {
+                return;
+            }
+            
+            const deltaTime = clock.getDelta();
+            
+            // Update player controller
+            playerController.update(deltaTime);
+            
+            // Update enemies
+            if (currentScene === 'indoor') {
+                enemies.forEach(enemy => {
+                    enemy.update(deltaTime, playerController.position);
+                });
+            }
+            
+            // Update dynamic lighting
+            updateDynamicLights(deltaTime);
+            
+            // Update particle systems
+            updateParticleEffects(deltaTime);
+            
+            // Update atmosphere
+            updateAtmosphere(deltaTime);
+            
+            // Render scene
+            renderer.render(scene, camera);
+        }
+        
+        function updateDynamicLights(deltaTime) {
+            dynamicLights.forEach(lightData => {
+                lightData.time += deltaTime;
+                
+                if (lightData.type === 'warning') {
+                    const intensity = 0.5 + 0.5 * Math.sin(lightData.time * 8);
+                    lightData.light.intensity = intensity;
+                }
+                
+                if (lightData.type === 'emergency') {
+                    const flicker = 0.6 + 0.4 * Math.sin(lightData.time * 15 + Math.random());
+                    lightData.light.intensity = flicker;
+                }
+            });
+        }
+        
+        function updateParticleEffects(deltaTime) {
+            particleSystems.forEach(system => {
+                if (system.userData.velocities) {
+                    const positions = system.geometry.attributes.position.array;
+                    const velocities = system.userData.velocities;
+                    
+                    for (let i = 0; i < positions.length; i += 3) {
+                        positions[i] += velocities[i] * deltaTime;
+                        positions[i + 1] += velocities[i + 1] * deltaTime;
+                        positions[i + 2] += velocities[i + 2] * deltaTime;
+                        
+                        // Reset particles that go too far
+                        if (positions[i + 1] > 30 || positions[i + 1] < -5) {
+                            positions[i] = (Math.random() - 0.5) * 400;
+                            positions[i + 1] = Math.random() * 30;
+                            positions[i + 2] = (Math.random() - 0.5) * 400;
+                        }
+                    }
+                    
+                    system.geometry.attributes.position.needsUpdate = true;
+                }
+            });
+        }
+        
+        function updateAtmosphere(deltaTime) {
+            // Gradually reduce stress when no enemies nearby
+            if (currentScene === 'indoor') {
+                let nearbyEnemy = false;
+                enemies.forEach(enemy => {
+                    if (enemy.position.distanceTo(playerController.position) < 15) {
+                        nearbyEnemy = true;
+                    }
+                });
+                
+                if (!nearbyEnemy) {
+                    stressLevel = Math.max(0, stressLevel - 10 * deltaTime);
+                }
+            } else {
+                stressLevel = Math.max(0, stressLevel - 20 * deltaTime);
+            }
+        }
+        
+        // Initialize the advanced game
+        init();
+        advancedGameLoop();
+    </script>
+</body>
+</html>
